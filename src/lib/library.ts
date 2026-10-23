@@ -77,6 +77,18 @@ export async function toggleBookmark(id: string, chapterIndex: number): Promise<
   return nowOn
 }
 
+export async function toggleLove(id: string, chapterIndex: number): Promise<boolean> {
+  const stored = await get<StoredBook>(bookKey(id))
+  if (!stored) return false
+  const loved = new Set(stored.loves || [])
+  const nowOn = !loved.has(chapterIndex)
+  if (nowOn) loved.add(chapterIndex)
+  else loved.delete(chapterIndex)
+  stored.loves = Array.from(loved)
+  await set(bookKey(id), stored)
+  return nowOn
+}
+
 export async function removeBook(id: string): Promise<void> {
   const lib = await getLibrary()
   await saveLibrary(lib.filter((b) => b.id !== id))

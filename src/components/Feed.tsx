@@ -1,12 +1,11 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { StoredBook } from '../types'
-import { updateProgress, toggleHighlight, toggleBookmark, saveChapterSummary } from '../lib/library'
+import { updateProgress, toggleHighlight, toggleBookmark, toggleLove } from '../lib/library'
 import { buildCumulativeWords } from '../lib/progress'
 import { toHandle } from '../lib/format'
 import { EMPTY_DISCUSSIONS, buildDiscussionsState, fetchDiscussions, type DiscussionsState } from '../lib/discussions'
-import { fetchChapterSummary } from '../lib/summary'
 import { PostCard } from './PostCard'
-import { BackIcon } from './Icons'
+import { BackIcon, BookmarkIcon, HeartIcon, TeacupDoodle, FeatherDoodle, MoonDoodle } from './Icons'
 
 interface FeedProps {
   book: StoredBook
@@ -14,6 +13,12 @@ interface FeedProps {
 }
 
 const BATCH_SIZE = 24
+
+const CLOSING_NOTES = [
+  { Doodle: TeacupDoodle, note: 'Pause. Sip your tea. Let that line settle.' },
+  { Doodle: FeatherDoodle, note: 'One good line is worth rereading twice.' },
+  { Doodle: MoonDoodle, note: 'Close your eyes for a second. Picture the scene.' },
+]
 
 export function Feed({ book, onBack }: FeedProps) {
   const { meta, posts } = book
@@ -23,30 +28,15 @@ export function Feed({ book, onBack }: FeedProps) {
 
   const { cumulative, total: totalWords } = useMemo(() => buildCumulativeWords(posts), [posts])
 
-  // Full text of each chapter, built once, so a chapter's recap can be
-  // generated on demand without re-walking the whole post list.
-  const chapterText = useMemo(() => {
-    const map = new Map<number, string>()
-    for (const post of posts) {
-      if (post.type !== 'text') continue
-      const plain = post.text.replace(/[_*]/g, '')
-      map.set(post.chapterIndex, map.has(post.chapterIndex) ? `${map.get(post.chapterIndex)}\n\n${plain}` : plain)
-    }
-    return map
-  }, [posts])
-
   const [activeTab, setActiveTab] = useState<'feed' | 'bookmarks'>('feed')
   const [visibleCount, setVisibleCount] = useState(Math.min(total, Math.max(meta.currentIndex + BATCH_SIZE, BATCH_SIZE)))
   const [currentIndex, setCurrentIndex] = useState(meta.currentIndex)
   const [highlights, setHighlights] = useState<Set<number>>(() => new Set(book.highlights || []))
   const [bookmarks, setBookmarks] = useState<Set<number>>(() => new Set(book.bookmarks || []))
+  const [loves, setLoves] = useState<Set<number>>(() => new Set(book.loves || []))
   const [discussions, setDiscussions] = useState<DiscussionsState>(EMPTY_DISCUSSIONS)
   const [reviewsOpen, setReviewsOpen] = useState(false)
   const [commentsOpen, setCommentsOpen] = useState<Set<number>>(new Set())
-  const [recapOpen, setRecapOpen] = useState<Set<number>>(new Set())
-  const [recapLoading, setRecapLoading] = useState<Set<number>>(new Set())
-  const [chapterSummaries, setChapterSummaries] = useState<Record<number, string>>(book.chapterSummaries || {})
-  const recapRequestedRef = useRef<Set<number>>(new Set())
 
   const containerRef = useRef<HTMLDivElement>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
@@ -84,6 +74,19 @@ export function Feed({ book, onBack }: FeedProps) {
     [meta.id],
   )
 
+  const handleToggleLove = useCallback(
+    (chapterIndex: number) => {
+      setLoves((prev) => {
+        const next = new Set(prev)
+        if (next.has(chapterIndex)) next.delete(chapterIndex)
+        else next.add(chapterIndex)
+        return next
+      })
+      toggleLove(meta.id, chapterIndex)
+    },
+    [meta.id],
+  )
+
   const handleToggleComments = useCallback((chapterIndex: number) => {
     setCommentsOpen((prev) => {
       const next = new Set(prev)
@@ -92,32 +95,6 @@ export function Feed({ book, onBack }: FeedProps) {
       return next
     })
   }, [])
-
-  const handleToggleRecap = useCallback(
-    (chapterIndex: number, chapterTitle: string) => {
-      setRecapOpen((prev) => {
-        const next = new Set(prev)
-        if (next.has(chapterIndex)) next.delete(chapterIndex)
-        else next.add(chapterIndex)
-        return next
-      })
-      if (chapterSummaries[chapterIndex] || recapRequestedRef.current.has(chapterIndex)) return
-      recapRequestedRef.current.add(chapterIndex)
-      setRecapLoading((prev) => new Set(prev).add(chapterIndex))
-      fetchChapterSummary(meta.title, chapterTitle, chapterText.get(chapterIndex) || '').then((result) => {
-        setRecapLoading((prev) => {
-          const next = new Set(prev)
-          next.delete(chapterIndex)
-          return next
-        })
-        if (result) {
-          setChapterSummaries((prev) => ({ ...prev, [chapterIndex]: result }))
-          saveChapterSummary(meta.id, chapterIndex, result)
-        }
-      })
-    },
-    [chapterSummaries, chapterText, meta.title, meta.id],
-  )
 
   // Fetch "what other readers think" once per book and group it by chapter.
   useEffect(() => {
@@ -355,6 +332,8 @@ export function Feed({ book, onBack }: FeedProps) {
             const hasDiscussion = !!discussion && (discussion.comments.length > 0 || !!discussion.thread)
             const chapterIndex = post.chapterIndex
             const isBookmarked = bookmarks.has(chapterIndex)
+            const isLoved = loves.has(chapterIndex)
+            const { Doodle, note } = CLOSING_NOTES[chapterIndex % CLOSING_NOTES.length]
             return (
               <Fragment key={i}>
                 <PostCard
@@ -368,50 +347,44 @@ export function Feed({ book, onBack }: FeedProps) {
                   onToggleHighlight={handleToggleHighlight}
                 />
                 {isChapterEnd && (
-                  <div className="chapter-end-actions">
-                    <button
-                      className={`chapter-save-button ${isBookmarked ? 'is-saved' : ''}`}
-                      type="button"
-                      onClick={() => handleToggleBookmark(chapterIndex)}
-                    >
-                      {isBookmarked ? '🔖 Saved' : '🔖 Save chapter'}
-                    </button>
+                  <div className="chapter-closing">
+                    <Doodle className="chapter-closing-doodle" />
+                    <p className="chapter-closing-note">{note}</p>
                   </div>
                 )}
                 {isChapterEnd && (
-                  <div className="chapter-recap">
-                    <div className="reviews-panel-row">
-                      <div className="recap-panel-title">End of chapter · Recap</div>
-                      <button
-                        className="reveal-button"
-                        type="button"
-                        onClick={() => handleToggleRecap(chapterIndex, post.chapterTitle)}
-                      >
-                        {recapOpen.has(chapterIndex) ? 'Hide recap' : 'Show recap'}
-                      </button>
-                    </div>
-                    {recapOpen.has(chapterIndex) &&
-                      (recapLoading.has(chapterIndex) ? (
-                        <p className="recap-loading">Putting together a recap…</p>
-                      ) : chapterSummaries[chapterIndex] ? (
-                        <p className="recap-text">{chapterSummaries[chapterIndex]}</p>
-                      ) : (
-                        <p className="recap-fallback">Add an OpenRouter key to get an AI-written recap here.</p>
-                      ))}
+                  <div className="chapter-actions-row">
+                    <button
+                      className={`chapter-action ${isLoved ? 'is-active' : ''}`}
+                      type="button"
+                      onClick={() => handleToggleLove(chapterIndex)}
+                    >
+                      <HeartIcon size={18} filled={isLoved} />
+                      <span>Love</span>
+                    </button>
+                    <button
+                      className={`chapter-action ${isBookmarked ? 'is-active' : ''}`}
+                      type="button"
+                      onClick={() => handleToggleBookmark(chapterIndex)}
+                    >
+                      <BookmarkIcon size={18} filled={isBookmarked} />
+                      <span>Save</span>
+                    </button>
                   </div>
                 )}
                 {isChapterEnd && hasDiscussion && discussion && (
                   <div className="chapter-comments">
-                    <div className="chapter-comments-row">
-                      <div className="chapter-comments-title">
-                        💬 Reader discussion{discussions.mock ? ' (demo)' : ''}
+                    <div className="reviews-panel-kicker">Comments</div>
+                    <div className="reviews-panel-row">
+                      <div className="reviews-panel-title">
+                        Reddit readers on this chapter{discussions.mock ? ' (demo)' : ''}
                       </div>
                       <button className="reveal-button" type="button" onClick={() => handleToggleComments(chapterIndex)}>
                         {commentsOpen.has(chapterIndex) ? 'Hide comments' : 'Show comments'}
                       </button>
                     </div>
                     {commentsOpen.has(chapterIndex) && (
-                      <div className="chapter-comments-body">
+                      <div className="reviews-panel-body">
                         {discussion.comments.map((comment, ci) => (
                           <a
                             key={ci}

@@ -133,6 +133,56 @@ export function VideoIcon({ size = 18, className }: IconProps) {
   )
 }
 
+export function BookmarkIcon({ size = 18, className, filled = false }: IconProps & { filled?: boolean }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} className={className}>
+      <path
+        d="M6.5 3.5h11a1 1 0 0 1 1 1V21l-6.5-3.9L5.5 21V4.5a1 1 0 0 1 1-1Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+/** Small original line-art flourishes shown once per chapter, each paired
+ * with a short closing note — a decorative "chapter's done" beat. */
+export function TeacupDoodle({ size = 36, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 36" fill="none" className={className}>
+      <path d="M7 13h18v9a6 6 0 0 1-6 6h-6a6 6 0 0 1-6-6v-9Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+      <path d="M25 16h3a3.5 3.5 0 0 1 0 7h-3" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M12 8c1-2 3-2 2-5M18 8c1-2 3-2 2-5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+export function FeatherDoodle({ size = 36, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 36" fill="none" className={className}>
+      <path d="M29 6c-10 1-18 9-19 19 10-1 18-9 19-19Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+      <path d="M27 8 10 25" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+      <path d="M8 29l2.5-2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+export function MoonDoodle({ size = 36, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 36" fill="none" className={className}>
+      <path
+        d="M25 7a11 11 0 1 0 7 17 9 9 0 0 1-7-17Z"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+      />
+      <path d="M10 10v-3M8.5 8.5h3" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+      <path d="M32 24v-2.5M30.8 22.8h2.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 export function UploadIcon({ size = 22, className }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>

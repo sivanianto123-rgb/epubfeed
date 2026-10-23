@@ -18,12 +18,26 @@ const BOILERPLATE_EPUB_TYPES = new Set([
   'landmarks',
   'loi',
   'lot',
+  'dedication',
+  'epigraph',
+  'acknowledgments',
 ])
 const BOILERPLATE_FILENAME_RE =
-  /(^|\/)(cover|title-?page|half-?title-?page|imprint|colophon|un-?copyright|copyright)(\.x?html?)?$/i
+  /(^|\/)(cover|title-?page|half-?title-?page|imprint|colophon|un-?copyright|copyright|dedication|epigraph|acknowledgments?)(\.x?html?)?$/i
+
+// Below this word count, a section with no heading of its own (so it was
+// never recognized as a real chapter) is almost certainly a dedication,
+// epigraph, or similar one-liner that wasn't marked up with an epub:type —
+// not something a reader wants presented as "Chapter 1".
+const MIN_WORDS_FOR_HEADLESS_CHAPTER = 20
 
 function collapseWhitespace(text: string): string {
   return text.replace(/\s+/g, ' ').trim()
+}
+
+function wordCount(text: string): number {
+  const trimmed = text.trim()
+  return trimmed ? trimmed.split(/\s+/).length : 0
 }
 
 function joinPath(dir: string, href: string): string {
@@ -208,6 +222,10 @@ export async function parseEpub(file: File | ArrayBuffer): Promise<ParsedBook> {
     const { paragraphs, firstHeading, epubTypes } = extractParagraphs(xhtml)
     if (paragraphs.length === 0) continue
     if (isBoilerplateChapter(item.href, epubTypes)) continue
+    if (!firstHeading) {
+      const words = paragraphs.reduce((sum, p) => sum + wordCount(p.text), 0)
+      if (words < MIN_WORDS_FOR_HEADLESS_CHAPTER) continue
+    }
     chapters.push({
       title: normalizeHeadingLabel(firstHeading, chapters.length),
       paragraphs,

@@ -903,6 +903,25 @@ img {
   color: var(--accent);
 }
 
+.discussion-empty {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0 0 10px;
+}
+
+.discussion-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.discussion-link:hover {
+  text-decoration: underline;
+}
+
 .chapter-divider-pill {
   font-family: var(--font-reading);
   font-size: 20px;

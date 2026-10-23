@@ -1,23 +1,12 @@
 import type { BookReview, ChapterDiscussion, ChapterThreadInfo, DiscussionsResponse, PassageQuote, Post } from '../types'
 
-const MOCK_REACTIONS = [
-  'I had to read this chapter three times.',
-  'This is the one everyone quotes.',
-  'Okay, this chapter hit different.',
-  'Reread this ending like five times.',
-  'This is where the book really starts for me.',
-  'Still thinking about this chapter a week later.',
-]
-
 export interface DiscussionsState {
-  mock: boolean
   /** chapterIndex -> the comment-section content to show after that chapter. */
   chapterDiscussions: Map<number, ChapterDiscussion>
   reviews: BookReview[]
 }
 
 export const EMPTY_DISCUSSIONS: DiscussionsState = {
-  mock: false,
   chapterDiscussions: new Map(),
   reviews: [],
 }
@@ -31,6 +20,14 @@ export async function fetchDiscussions(title: string, author: string): Promise<D
   } catch {
     return null
   }
+}
+
+/** A real, always-working link to Reddit's own search — the honest
+ * fallback when we have no matched quotes or threads for a book/chapter
+ * (no credentials configured, or genuinely nothing found). */
+export function redditSearchUrl(title: string, author: string, extra?: string): string {
+  const q = [title, author, extra].filter(Boolean).join(' ')
+  return `https://www.reddit.com/search/?q=${encodeURIComponent(q)}`
 }
 
 function normalize(text: string): string {
@@ -120,51 +117,9 @@ function groupByChapter(
   return result
 }
 
-function hashString(s: string): number {
-  let h = 2166136261
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i)
-    h = Math.imul(h, 16777619)
-  }
-  return h >>> 0
-}
-
-function synthesizeMock(posts: Post[]): Omit<DiscussionsState, 'mock'> {
-  const chapterIndices = Array.from(new Set(posts.map((p) => p.chapterIndex))).sort((a, b) => a - b)
-  const chapterDiscussions = new Map<number, ChapterDiscussion>()
-
-  chapterIndices.forEach((ci) => {
-    const hasText = posts.some((p) => p.chapterIndex === ci && p.type === 'text')
-    if (!hasText) return
-    const seed = hashString(`chapter-${ci}`)
-    chapterDiscussions.set(ci, {
-      comments: [
-        {
-          text: MOCK_REACTIONS[seed % MOCK_REACTIONS.length],
-          permalink: '#',
-          subreddit: 'demo',
-          author: 'demo_reader',
-        },
-      ],
-      thread: { title: 'Demo discussion thread', permalink: '#', subreddit: 'demo', throughChapter: ci + 1 },
-    })
-  })
-
-  const reviews: BookReview[] = [
-    { text: 'A tight, well-paced read start to finish. (Demo review — connect Hardcover to see real ones.)', rating: 4, permalink: null },
-    { text: 'The ending surprised me more than I expected. (Demo review.)', rating: 5, permalink: null },
-  ]
-
-  return { chapterDiscussions, reviews }
-}
-
 export function buildDiscussionsState(posts: Post[], data: DiscussionsResponse | null): DiscussionsState {
   if (!data) return EMPTY_DISCUSSIONS
-  if (data.mock) {
-    return { mock: true, ...synthesizeMock(posts) }
-  }
   return {
-    mock: false,
     chapterDiscussions: groupByChapter(posts, data.quotes, data.chapterThreads),
     reviews: data.reviews,
   }

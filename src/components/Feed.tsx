@@ -3,9 +3,15 @@ import type { StoredBook } from '../types'
 import { updateProgress, toggleHighlight, toggleBookmark, toggleLove } from '../lib/library'
 import { buildCumulativeWords } from '../lib/progress'
 import { toHandle } from '../lib/format'
-import { EMPTY_DISCUSSIONS, buildDiscussionsState, fetchDiscussions, type DiscussionsState } from '../lib/discussions'
+import {
+  EMPTY_DISCUSSIONS,
+  buildDiscussionsState,
+  fetchDiscussions,
+  redditSearchUrl,
+  type DiscussionsState,
+} from '../lib/discussions'
 import { PostCard } from './PostCard'
-import { BackIcon, BookmarkIcon, HeartIcon, TeacupDoodle, FeatherDoodle, MoonDoodle } from './Icons'
+import { BackIcon, BookmarkIcon, ExternalLinkIcon, HeartIcon, TeacupDoodle, FeatherDoodle, MoonDoodle } from './Icons'
 
 interface FeedProps {
   book: StoredBook
@@ -224,7 +230,6 @@ export function Feed({ book, onBack }: FeedProps) {
       ? Math.min(100, Math.round((cumulative[Math.min(currentIndex, total - 1)] / totalWords) * 100))
       : 0
 
-  const reviewsAvailable = discussions.reviews.length > 0
   const bookmarkedChapters = useMemo(() => Array.from(bookmarks).sort((a, b) => a - b), [bookmarks])
 
   return (
@@ -297,18 +302,18 @@ export function Feed({ book, onBack }: FeedProps) {
             <p className="frontispiece-author">by {meta.author}</p>
           </div>
 
-          {reviewsAvailable && (
-            <div className="reviews-panel reviews-panel--intro">
-              <div className="reviews-panel-kicker">What readers say</div>
-              <div className="reviews-panel-row">
-                <div className="reviews-panel-title">Reddit on this book{discussions.mock ? ' (demo)' : ''}</div>
-                <button className="reveal-button" type="button" onClick={() => setReviewsOpen((v) => !v)}>
-                  {reviewsOpen ? 'Hide reviews' : 'Show reviews'}
-                </button>
-              </div>
-              {reviewsOpen && (
-                <div className="reviews-panel-body">
-                  {discussions.reviews.map((review, i) => (
+          <div className="reviews-panel reviews-panel--intro">
+            <div className="reviews-panel-kicker">What readers say</div>
+            <div className="reviews-panel-row">
+              <div className="reviews-panel-title">Reddit on this book</div>
+              <button className="reveal-button" type="button" onClick={() => setReviewsOpen((v) => !v)}>
+                {reviewsOpen ? 'Hide reviews' : 'Show reviews'}
+              </button>
+            </div>
+            {reviewsOpen && (
+              <div className="reviews-panel-body">
+                {discussions.reviews.length > 0 ? (
+                  discussions.reviews.map((review, i) => (
                     <div key={i} className="review-card">
                       {review.rating != null && (
                         <div className="review-rating">
@@ -318,18 +323,25 @@ export function Feed({ book, onBack }: FeedProps) {
                       )}
                       <p>{review.text}</p>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+                  ))
+                ) : (
+                  <>
+                    <p className="discussion-empty">No reviews came through here yet.</p>
+                    <a className="discussion-link" href={redditSearchUrl(meta.title, meta.author)} target="_blank" rel="noreferrer">
+                      See all on Reddit
+                      <ExternalLinkIcon size={13} />
+                    </a>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
 
           {visiblePosts.map((post, i) => {
             const next = posts[i + 1]
             const threaded = post.type === 'text' && !!next && next.type === 'text' && next.chapterIndex === post.chapterIndex
             const isChapterEnd = !next || next.chapterIndex !== post.chapterIndex
             const discussion = isChapterEnd ? discussions.chapterDiscussions.get(post.chapterIndex) : undefined
-            const hasDiscussion = !!discussion && (discussion.comments.length > 0 || !!discussion.thread)
             const chapterIndex = post.chapterIndex
             const isBookmarked = bookmarks.has(chapterIndex)
             const isLoved = loves.has(chapterIndex)
@@ -372,47 +384,46 @@ export function Feed({ book, onBack }: FeedProps) {
                     </button>
                   </div>
                 )}
-                {isChapterEnd && hasDiscussion && discussion && (
+                {isChapterEnd && (
                   <div className="chapter-comments">
                     <div className="reviews-panel-kicker">Comments</div>
                     <div className="reviews-panel-row">
-                      <div className="reviews-panel-title">
-                        Reddit readers on this chapter{discussions.mock ? ' (demo)' : ''}
-                      </div>
+                      <div className="reviews-panel-title">Reddit readers on this chapter</div>
                       <button className="reveal-button" type="button" onClick={() => handleToggleComments(chapterIndex)}>
                         {commentsOpen.has(chapterIndex) ? 'Hide comments' : 'Show comments'}
                       </button>
                     </div>
-                    {commentsOpen.has(chapterIndex) && (
-                      <div className="reviews-panel-body">
-                        {discussion.comments.map((comment, ci) => (
+                    {commentsOpen.has(chapterIndex) &&
+                      (discussion && (discussion.comments.length > 0 || discussion.thread) ? (
+                        <div className="reviews-panel-body">
+                          {discussion.comments.map((comment, ci) => (
+                            <a key={ci} className="chapter-comment" href={comment.permalink} target="_blank" rel="noreferrer">
+                              <span className="chapter-comment-text">“{comment.text}”</span>
+                              <span className="chapter-comment-source">
+                                u/{comment.author} · r/{comment.subreddit}
+                              </span>
+                            </a>
+                          ))}
+                          {discussion.thread && (
+                            <a className="chapter-thread-link" href={discussion.thread.permalink} target="_blank" rel="noreferrer">
+                              View the full discussion on r/{discussion.thread.subreddit} →
+                            </a>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="reviews-panel-body">
+                          <p className="discussion-empty">No Reddit threads came through here yet.</p>
                           <a
-                            key={ci}
-                            className="chapter-comment"
-                            href={comment.permalink}
-                            target={discussions.mock ? undefined : '_blank'}
+                            className="discussion-link"
+                            href={redditSearchUrl(meta.title, meta.author, post.chapterTitle)}
+                            target="_blank"
                             rel="noreferrer"
-                            onClick={discussions.mock ? (e) => e.preventDefault() : undefined}
                           >
-                            <span className="chapter-comment-text">“{comment.text}”</span>
-                            <span className="chapter-comment-source">
-                              u/{comment.author} · r/{comment.subreddit}
-                            </span>
+                            See all on Reddit
+                            <ExternalLinkIcon size={13} />
                           </a>
-                        ))}
-                        {discussion.thread && (
-                          <a
-                            className="chapter-thread-link"
-                            href={discussion.thread.permalink}
-                            target={discussions.mock ? undefined : '_blank'}
-                            rel="noreferrer"
-                            onClick={discussions.mock ? (e) => e.preventDefault() : undefined}
-                          >
-                            View the full discussion on r/{discussion.thread.subreddit} →
-                          </a>
-                        )}
-                      </div>
-                    )}
+                        </div>
+                      ))}
                   </div>
                 )}
               </Fragment>

@@ -514,8 +514,6 @@ img {
 .recap-panel-title {
   font-size: 16px;
   font-weight: 800;
-  margin-bottom: 10px;
-  text-align: center;
   color: var(--text-primary);
 }
 
@@ -526,7 +524,7 @@ img {
   font-size: 15px;
   line-height: 1.6;
   color: var(--text-primary);
-  margin: 0;
+  margin: 12px 0 0;
 }
 
 .recap-loading,
@@ -534,6 +532,60 @@ img {
   color: var(--text-secondary);
   font-style: italic;
   text-align: center;
+}
+
+/* ---------- Reveal buttons & chapter navigation ---------- */
+
+.reveal-button {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+
+.reveal-button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.chapter-nav {
+  display: flex;
+  padding: 28px 16px 40px;
+}
+
+.chapter-nav--next {
+  justify-content: center;
+}
+
+.chapter-nav--prev {
+  padding: 16px 16px 0;
+}
+
+.next-chapter-button {
+  font-size: 14px;
+  font-weight: 700;
+  padding: 11px 22px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.next-chapter-button:hover {
+  opacity: 0.9;
+}
+
+.prev-chapter-button {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.prev-chapter-button:hover {
+  color: var(--accent);
 }
 
 /* ---------- Frontispiece (now reading) ---------- */
@@ -813,11 +865,21 @@ img {
   border-bottom: 1px solid var(--border);
 }
 
+.chapter-comments-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .chapter-comments-title {
   font-size: 13px;
   font-weight: 700;
   color: var(--text-secondary);
-  margin-bottom: 10px;
+}
+
+.chapter-comments-body {
+  margin-top: 12px;
 }
 
 .chapter-comment {
@@ -861,11 +923,29 @@ img {
   border-bottom: 1px solid var(--border);
 }
 
+.reviews-panel-kicker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.reviews-panel-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .reviews-panel-title {
   font-size: 16px;
   font-weight: 800;
-  margin-bottom: 14px;
-  text-align: center;
+}
+
+.reviews-panel-body {
+  margin-top: 14px;
 }
 
 .review-card {

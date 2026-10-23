@@ -44,8 +44,10 @@ export interface StoredBook {
   posts: Post[]
   /** Indices (into `posts`) the reader has starred. */
   highlights?: number[]
-  /** Cached AI-written recap, generated once the reader reaches the end. */
-  summary?: string
+  /** Chapter indices the reader has saved, shown in the separate Bookmarks tab. */
+  bookmarks?: number[]
+  /** Cached AI-written recaps, keyed by chapterIndex, generated lazily the first time each chapter's recap is opened. */
+  chapterSummaries?: Record<number, string>
 }
 
 /** A reader comment that quotes a specific passage from the book. */

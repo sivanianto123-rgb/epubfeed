@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { StoredBook } from '../types'
-import { updateProgress, toggleHighlight, saveSummary } from '../lib/library'
+import { updateProgress, toggleHighlight, toggleBookmark, saveChapterSummary } from '../lib/library'
 import { buildCumulativeWords } from '../lib/progress'
 import { toHandle } from '../lib/format'
 import { EMPTY_DISCUSSIONS, buildDiscussionsState, fetchDiscussions, type DiscussionsState } from '../lib/discussions'
-import { fetchBookSummary } from '../lib/summary'
+import { fetchChapterSummary } from '../lib/summary'
 import { PostCard } from './PostCard'
 import { BackIcon } from './Icons'
 
@@ -12,6 +12,8 @@ interface FeedProps {
   book: StoredBook
   onBack: () => void
 }
+
+const BATCH_SIZE = 24
 
 export function Feed({ book, onBack }: FeedProps) {
   const { meta, posts } = book
@@ -21,36 +23,40 @@ export function Feed({ book, onBack }: FeedProps) {
 
   const { cumulative, total: totalWords } = useMemo(() => buildCumulativeWords(posts), [posts])
 
-  const initialChapterIndex = total > 0 ? posts[Math.min(meta.currentIndex, total - 1)].chapterIndex : 0
-  const [currentChapterIndex, setCurrentChapterIndex] = useState(initialChapterIndex)
+  // Full text of each chapter, built once, so a chapter's recap can be
+  // generated on demand without re-walking the whole post list.
+  const chapterText = useMemo(() => {
+    const map = new Map<number, string>()
+    for (const post of posts) {
+      if (post.type !== 'text') continue
+      const plain = post.text.replace(/[_*]/g, '')
+      map.set(post.chapterIndex, map.has(post.chapterIndex) ? `${map.get(post.chapterIndex)}\n\n${plain}` : plain)
+    }
+    return map
+  }, [posts])
+
+  const [activeTab, setActiveTab] = useState<'feed' | 'bookmarks'>('feed')
+  const [visibleCount, setVisibleCount] = useState(Math.min(total, Math.max(meta.currentIndex + BATCH_SIZE, BATCH_SIZE)))
   const [currentIndex, setCurrentIndex] = useState(meta.currentIndex)
   const [highlights, setHighlights] = useState<Set<number>>(() => new Set(book.highlights || []))
+  const [bookmarks, setBookmarks] = useState<Set<number>>(() => new Set(book.bookmarks || []))
   const [discussions, setDiscussions] = useState<DiscussionsState>(EMPTY_DISCUSSIONS)
-  const [reachedEnd, setReachedEnd] = useState(false)
-  const [summary, setSummary] = useState<string | null>(book.summary ?? null)
-  const [summaryLoading, setSummaryLoading] = useState(false)
   const [reviewsOpen, setReviewsOpen] = useState(false)
-  const [recapOpen, setRecapOpen] = useState(false)
-  const [commentsOpen, setCommentsOpen] = useState(false)
-  const summaryRequestedRef = useRef(false)
+  const [commentsOpen, setCommentsOpen] = useState<Set<number>>(new Set())
+  const [recapOpen, setRecapOpen] = useState<Set<number>>(new Set())
+  const [recapLoading, setRecapLoading] = useState<Set<number>>(new Set())
+  const [chapterSummaries, setChapterSummaries] = useState<Record<number, string>>(book.chapterSummaries || {})
+  const recapRequestedRef = useRef<Set<number>>(new Set())
 
   const containerRef = useRef<HTMLDivElement>(null)
-  const endMarkerRef = useRef<HTMLDivElement>(null)
+  const sentinelRef = useRef<HTMLDivElement>(null)
   const restoredRef = useRef(false)
   const visibleSetRef = useRef<Set<number>>(new Set())
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const currentIndexRef = useRef(meta.currentIndex)
   currentIndexRef.current = currentIndex
 
-  const isLastChapter = totalChapters === 0 || currentChapterIndex >= totalChapters - 1
-
-  const chapterPosts = useMemo(
-    () => posts.map((post, i) => ({ post, i })).filter(({ post }) => post.chapterIndex === currentChapterIndex),
-    [posts, currentChapterIndex],
-  )
-
-  const chapterDiscussion = discussions.chapterDiscussions.get(currentChapterIndex)
-  const hasChapterDiscussion = !!chapterDiscussion && (chapterDiscussion.comments.length > 0 || !!chapterDiscussion.thread)
+  const visiblePosts = posts.slice(0, visibleCount)
 
   const handleToggleHighlight = useCallback(
     (index: number) => {
@@ -65,7 +71,55 @@ export function Feed({ book, onBack }: FeedProps) {
     [meta.id],
   )
 
-  // Fetch "what other readers think" once per book.
+  const handleToggleBookmark = useCallback(
+    (chapterIndex: number) => {
+      setBookmarks((prev) => {
+        const next = new Set(prev)
+        if (next.has(chapterIndex)) next.delete(chapterIndex)
+        else next.add(chapterIndex)
+        return next
+      })
+      toggleBookmark(meta.id, chapterIndex)
+    },
+    [meta.id],
+  )
+
+  const handleToggleComments = useCallback((chapterIndex: number) => {
+    setCommentsOpen((prev) => {
+      const next = new Set(prev)
+      if (next.has(chapterIndex)) next.delete(chapterIndex)
+      else next.add(chapterIndex)
+      return next
+    })
+  }, [])
+
+  const handleToggleRecap = useCallback(
+    (chapterIndex: number, chapterTitle: string) => {
+      setRecapOpen((prev) => {
+        const next = new Set(prev)
+        if (next.has(chapterIndex)) next.delete(chapterIndex)
+        else next.add(chapterIndex)
+        return next
+      })
+      if (chapterSummaries[chapterIndex] || recapRequestedRef.current.has(chapterIndex)) return
+      recapRequestedRef.current.add(chapterIndex)
+      setRecapLoading((prev) => new Set(prev).add(chapterIndex))
+      fetchChapterSummary(meta.title, chapterTitle, chapterText.get(chapterIndex) || '').then((result) => {
+        setRecapLoading((prev) => {
+          const next = new Set(prev)
+          next.delete(chapterIndex)
+          return next
+        })
+        if (result) {
+          setChapterSummaries((prev) => ({ ...prev, [chapterIndex]: result }))
+          saveChapterSummary(meta.id, chapterIndex, result)
+        }
+      })
+    },
+    [chapterSummaries, chapterText, meta.title, meta.id],
+  )
+
+  // Fetch "what other readers think" once per book and group it by chapter.
   useEffect(() => {
     let cancelled = false
     fetchDiscussions(meta.title, meta.author).then((data) => {
@@ -78,56 +132,40 @@ export function Feed({ book, onBack }: FeedProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meta.id])
 
-  // Detect when the reader has scrolled to the end of the LAST chapter —
-  // the true end of the book, not just the end of whichever chapter is
-  // currently loaded.
+  // Infinite-load sentinel
   useEffect(() => {
-    if (!isLastChapter) return
-    const el = endMarkerRef.current
-    if (!el) return
-    const observer = new IntersectionObserver((entries) => {
-      if (entries[0]?.isIntersecting) setReachedEnd(true)
-    })
-    observer.observe(el)
+    const sentinel = sentinelRef.current
+    if (!sentinel) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisibleCount((v) => Math.min(total, v + BATCH_SIZE))
+        }
+      },
+      { rootMargin: '1200px 0px' },
+    )
+    observer.observe(sentinel)
     return () => observer.disconnect()
-  }, [isLastChapter, currentChapterIndex])
+  }, [total])
 
-  // Reveals the recap panel, generating it (once, lazily) the first time
-  // the reader actually asks to see it — never speculatively.
-  const handleRecapToggle = useCallback(() => {
-    setRecapOpen((v) => !v)
-    if (summary || summaryRequestedRef.current) return
-    summaryRequestedRef.current = true
-    setSummaryLoading(true)
-    const fullText = posts
-      .filter((p) => p.type === 'text')
-      .map((p) => p.text.replace(/[_*]/g, ''))
-      .join('\n\n')
-    fetchBookSummary(meta.title, meta.author, fullText).then((result) => {
-      setSummaryLoading(false)
-      if (result) {
-        setSummary(result)
-        saveSummary(meta.id, result)
-      }
-    })
-  }, [summary, posts, meta.title, meta.author, meta.id])
-
-  // Restore scroll position to the saved post, once, on first load.
+  // Restore scroll position once the saved index is rendered
   useEffect(() => {
     if (restoredRef.current) return
     if (meta.currentIndex === 0) {
       restoredRef.current = true
       return
     }
+    if (meta.currentIndex >= visibleCount) return
     const el = containerRef.current?.querySelector<HTMLElement>(`[data-index="${meta.currentIndex}"]`)
     if (el) {
       el.scrollIntoView({ block: 'start' })
       restoredRef.current = true
     }
-  }, [chapterPosts, meta.currentIndex])
+  }, [visibleCount, meta.currentIndex])
 
-  // Track reading progress (topmost visible post in the current chapter)
+  // Track reading progress (topmost visible post)
   useEffect(() => {
+    if (activeTab !== 'feed') return
     const root = containerRef.current
     if (!root) return
     const observer = new IntersectionObserver(
@@ -148,7 +186,7 @@ export function Feed({ book, onBack }: FeedProps) {
     const cards = root.querySelectorAll<HTMLElement>('[data-index]')
     cards.forEach((el) => observer.observe(el))
     return () => observer.disconnect()
-  }, [chapterPosts])
+  }, [visibleCount, activeTab])
 
   // Debounced progress persistence
   useEffect(() => {
@@ -170,31 +208,14 @@ export function Feed({ book, onBack }: FeedProps) {
     }
   }, [meta.id])
 
-  const goToChapter = useCallback((chapterIndex: number) => {
-    setCurrentChapterIndex(chapterIndex)
-    setCommentsOpen(false)
-    visibleSetRef.current = new Set()
-    requestAnimationFrame(() => {
-      containerRef.current?.scrollTo({ top: 0 })
-    })
-  }, [])
-
-  const goNextChapter = useCallback(() => {
-    if (!isLastChapter) goToChapter(currentChapterIndex + 1)
-  }, [isLastChapter, currentChapterIndex, goToChapter])
-
-  const goPrevChapter = useCallback(() => {
-    if (currentChapterIndex > 0) goToChapter(currentChapterIndex - 1)
-  }, [currentChapterIndex, goToChapter])
-
-  // Keyboard navigation within the current chapter
+  // Keyboard navigation
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (activeTab !== 'feed') return
       if (e.key !== 'j' && e.key !== 'k' && e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
       const dir = e.key === 'j' || e.key === 'ArrowDown' ? 1 : -1
       const target = currentIndex + dir
       if (target < 0 || target >= total) return
-      if (posts[target].chapterIndex !== currentChapterIndex) return
       const el = containerRef.current?.querySelector<HTMLElement>(`[data-index="${target}"]`)
       if (el) {
         e.preventDefault()
@@ -203,7 +224,23 @@ export function Feed({ book, onBack }: FeedProps) {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [currentIndex, total, posts, currentChapterIndex])
+  }, [currentIndex, total, activeTab])
+
+  const jumpToChapter = useCallback(
+    (chapterIndex: number) => {
+      const targetGlobalIndex = posts.findIndex((p) => p.chapterIndex === chapterIndex)
+      if (targetGlobalIndex < 0) return
+      setActiveTab('feed')
+      setVisibleCount((v) => Math.max(v, targetGlobalIndex + BATCH_SIZE))
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const el = containerRef.current?.querySelector<HTMLElement>(`[data-index="${targetGlobalIndex}"]`)
+          el?.scrollIntoView({ block: 'start' })
+        })
+      })
+    },
+    [posts],
+  )
 
   const progressPct =
     totalWords > 0 && total > 0
@@ -211,6 +248,7 @@ export function Feed({ book, onBack }: FeedProps) {
       : 0
 
   const reviewsAvailable = discussions.reviews.length > 0
+  const bookmarkedChapters = useMemo(() => Array.from(bookmarks).sort((a, b) => a - b), [bookmarks])
 
   return (
     <div className="feed-screen">
@@ -221,157 +259,200 @@ export function Feed({ book, onBack }: FeedProps) {
         <div className="feed-header-text">
           <div className="feed-header-title">{meta.title}</div>
           <div className="feed-header-sub">
-            Chapter {currentChapterIndex + 1} of {totalChapters} · {progressPct}% read
+            {totalChapters} chapters · {progressPct}% read
           </div>
         </div>
       </header>
       <div className="feed-progress-track">
         <div className="feed-progress-fill" style={{ width: `${progressPct}%` }} />
       </div>
-      <div className="feed-scroll" ref={containerRef}>
-        {currentChapterIndex === 0 && (
-          <>
-            <div className="frontispiece">
-              {meta.coverDataUrl ? (
-                <img className="frontispiece-cover" src={meta.coverDataUrl} alt="" />
-              ) : (
-                <div className="frontispiece-cover-fallback">
-                  <span>{meta.title}</span>
+
+      <div className="feed-tabs">
+        <button
+          className={`feed-tab ${activeTab === 'feed' ? 'is-active' : ''}`}
+          type="button"
+          onClick={() => setActiveTab('feed')}
+        >
+          For you
+        </button>
+        <button
+          className={`feed-tab ${activeTab === 'bookmarks' ? 'is-active' : ''}`}
+          type="button"
+          onClick={() => setActiveTab('bookmarks')}
+        >
+          Bookmarks ({bookmarkedChapters.length})
+        </button>
+      </div>
+
+      {activeTab === 'bookmarks' ? (
+        <div className="bookmarks-screen">
+          {bookmarkedChapters.length === 0 ? (
+            <p className="bookmarks-empty">Save chapters to find them here.</p>
+          ) : (
+            bookmarkedChapters.map((chapterIndex) => {
+              const chapterPost = posts.find((p) => p.chapterIndex === chapterIndex)
+              return (
+                <button
+                  key={chapterIndex}
+                  className="bookmark-card"
+                  type="button"
+                  onClick={() => jumpToChapter(chapterIndex)}
+                >
+                  <span className="bookmark-card-title">{chapterPost?.chapterTitle || `Chapter ${chapterIndex + 1}`}</span>
+                  <span className="bookmark-card-go">Go to chapter →</span>
+                </button>
+              )
+            })
+          )}
+        </div>
+      ) : (
+        <div className="feed-scroll" ref={containerRef}>
+          <div className="frontispiece">
+            {meta.coverDataUrl ? (
+              <img className="frontispiece-cover" src={meta.coverDataUrl} alt="" />
+            ) : (
+              <div className="frontispiece-cover-fallback">
+                <span>{meta.title}</span>
+              </div>
+            )}
+            <p className="frontispiece-kicker">Now reading</p>
+            <h2 className="frontispiece-title">{meta.title}</h2>
+            <p className="frontispiece-author">by {meta.author}</p>
+          </div>
+
+          {reviewsAvailable && (
+            <div className="reviews-panel reviews-panel--intro">
+              <div className="reviews-panel-kicker">What readers say</div>
+              <div className="reviews-panel-row">
+                <div className="reviews-panel-title">Reddit on this book{discussions.mock ? ' (demo)' : ''}</div>
+                <button className="reveal-button" type="button" onClick={() => setReviewsOpen((v) => !v)}>
+                  {reviewsOpen ? 'Hide reviews' : 'Show reviews'}
+                </button>
+              </div>
+              {reviewsOpen && (
+                <div className="reviews-panel-body">
+                  {discussions.reviews.map((review, i) => (
+                    <div key={i} className="review-card">
+                      {review.rating != null && (
+                        <div className="review-rating">
+                          {'★'.repeat(review.rating)}
+                          {'☆'.repeat(Math.max(0, 5 - review.rating))}
+                        </div>
+                      )}
+                      <p>{review.text}</p>
+                    </div>
+                  ))}
                 </div>
               )}
-              <p className="frontispiece-kicker">Now reading</p>
-              <h2 className="frontispiece-title">{meta.title}</h2>
-              <p className="frontispiece-author">by {meta.author}</p>
             </div>
+          )}
 
-            {reviewsAvailable && (
-              <div className="reviews-panel reviews-panel--intro">
-                <div className="reviews-panel-kicker">What readers say</div>
-                <div className="reviews-panel-row">
-                  <div className="reviews-panel-title">Reddit on this book{discussions.mock ? ' (demo)' : ''}</div>
-                  <button className="reveal-button" type="button" onClick={() => setReviewsOpen((v) => !v)}>
-                    {reviewsOpen ? 'Hide reviews' : 'Show reviews'}
-                  </button>
-                </div>
-                {reviewsOpen && (
-                  <div className="reviews-panel-body">
-                    {discussions.reviews.map((review, i) => (
-                      <div key={i} className="review-card">
-                        {review.rating != null && (
-                          <div className="review-rating">
-                            {'★'.repeat(review.rating)}
-                            {'☆'.repeat(Math.max(0, 5 - review.rating))}
-                          </div>
-                        )}
-                        <p>{review.text}</p>
-                      </div>
-                    ))}
+          {visiblePosts.map((post, i) => {
+            const next = posts[i + 1]
+            const threaded = post.type === 'text' && !!next && next.type === 'text' && next.chapterIndex === post.chapterIndex
+            const isChapterEnd = !next || next.chapterIndex !== post.chapterIndex
+            const discussion = isChapterEnd ? discussions.chapterDiscussions.get(post.chapterIndex) : undefined
+            const hasDiscussion = !!discussion && (discussion.comments.length > 0 || !!discussion.thread)
+            const chapterIndex = post.chapterIndex
+            const isBookmarked = bookmarks.has(chapterIndex)
+            return (
+              <Fragment key={i}>
+                <PostCard
+                  post={post}
+                  index={i}
+                  displayName={meta.author}
+                  handle={handle}
+                  avatar={meta.coverDataUrl}
+                  threaded={threaded}
+                  highlighted={highlights.has(i)}
+                  onToggleHighlight={handleToggleHighlight}
+                />
+                {isChapterEnd && (
+                  <div className="chapter-end-actions">
+                    <button
+                      className={`chapter-save-button ${isBookmarked ? 'is-saved' : ''}`}
+                      type="button"
+                      onClick={() => handleToggleBookmark(chapterIndex)}
+                    >
+                      {isBookmarked ? '🔖 Saved' : '🔖 Save chapter'}
+                    </button>
                   </div>
                 )}
-              </div>
-            )}
-          </>
-        )}
-
-        {currentChapterIndex > 0 && (
-          <div className="chapter-nav chapter-nav--prev">
-            <button className="prev-chapter-button" type="button" onClick={goPrevChapter}>
-              ‹ Previous chapter
-            </button>
-          </div>
-        )}
-
-        {chapterPosts.map(({ post, i }, idx) => {
-          const next = chapterPosts[idx + 1]?.post
-          const threaded = post.type === 'text' && !!next && next.type === 'text'
-          return (
-            <PostCard
-              key={i}
-              post={post}
-              index={i}
-              displayName={meta.author}
-              handle={handle}
-              avatar={meta.coverDataUrl}
-              threaded={threaded}
-              highlighted={highlights.has(i)}
-              onToggleHighlight={handleToggleHighlight}
-            />
-          )
-        })}
-
-        {hasChapterDiscussion && chapterDiscussion && (
-          <div className="chapter-comments">
-            <div className="chapter-comments-row">
-              <div className="chapter-comments-title">💬 Reader discussion{discussions.mock ? ' (demo)' : ''}</div>
-              <button className="reveal-button" type="button" onClick={() => setCommentsOpen((v) => !v)}>
-                {commentsOpen ? 'Hide comments' : 'Show comments'}
-              </button>
-            </div>
-            {commentsOpen && (
-              <div className="chapter-comments-body">
-                {chapterDiscussion.comments.map((comment, ci) => (
-                  <a
-                    key={ci}
-                    className="chapter-comment"
-                    href={comment.permalink}
-                    target={discussions.mock ? undefined : '_blank'}
-                    rel="noreferrer"
-                    onClick={discussions.mock ? (e) => e.preventDefault() : undefined}
-                  >
-                    <span className="chapter-comment-text">“{comment.text}”</span>
-                    <span className="chapter-comment-source">
-                      u/{comment.author} · r/{comment.subreddit}
-                    </span>
-                  </a>
-                ))}
-                {chapterDiscussion.thread && (
-                  <a
-                    className="chapter-thread-link"
-                    href={chapterDiscussion.thread.permalink}
-                    target={discussions.mock ? undefined : '_blank'}
-                    rel="noreferrer"
-                    onClick={discussions.mock ? (e) => e.preventDefault() : undefined}
-                  >
-                    View the full discussion on r/{chapterDiscussion.thread.subreddit} →
-                  </a>
+                {isChapterEnd && (
+                  <div className="chapter-recap">
+                    <div className="reviews-panel-row">
+                      <div className="recap-panel-title">End of chapter · Recap</div>
+                      <button
+                        className="reveal-button"
+                        type="button"
+                        onClick={() => handleToggleRecap(chapterIndex, post.chapterTitle)}
+                      >
+                        {recapOpen.has(chapterIndex) ? 'Hide recap' : 'Show recap'}
+                      </button>
+                    </div>
+                    {recapOpen.has(chapterIndex) &&
+                      (recapLoading.has(chapterIndex) ? (
+                        <p className="recap-loading">Putting together a recap…</p>
+                      ) : chapterSummaries[chapterIndex] ? (
+                        <p className="recap-text">{chapterSummaries[chapterIndex]}</p>
+                      ) : (
+                        <p className="recap-fallback">Add an OpenRouter key to get an AI-written recap here.</p>
+                      ))}
+                  </div>
                 )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {!isLastChapter && (
-          <div className="chapter-nav chapter-nav--next">
-            <button className="next-chapter-button" type="button" onClick={goNextChapter}>
-              Next chapter →
-            </button>
-          </div>
-        )}
-
-        {isLastChapter && (
-          <div className="feed-end" ref={endMarkerRef}>
-            <span className="feed-end-label">— end of book —</span>
-            {reachedEnd && (
-              <div className="recap-panel">
-                <div className="reviews-panel-row">
-                  <div className="recap-panel-title">Recap</div>
-                  <button className="reveal-button" type="button" onClick={handleRecapToggle}>
-                    {recapOpen ? 'Hide recap' : 'Show recap'}
-                  </button>
-                </div>
-                {recapOpen &&
-                  (summaryLoading ? (
-                    <p className="recap-loading">Putting together a recap…</p>
-                  ) : summary ? (
-                    <p className="recap-text">{summary}</p>
-                  ) : (
-                    <p className="recap-fallback">Add an OpenRouter key to get an AI-written recap here.</p>
-                  ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+                {isChapterEnd && hasDiscussion && discussion && (
+                  <div className="chapter-comments">
+                    <div className="chapter-comments-row">
+                      <div className="chapter-comments-title">
+                        💬 Reader discussion{discussions.mock ? ' (demo)' : ''}
+                      </div>
+                      <button className="reveal-button" type="button" onClick={() => handleToggleComments(chapterIndex)}>
+                        {commentsOpen.has(chapterIndex) ? 'Hide comments' : 'Show comments'}
+                      </button>
+                    </div>
+                    {commentsOpen.has(chapterIndex) && (
+                      <div className="chapter-comments-body">
+                        {discussion.comments.map((comment, ci) => (
+                          <a
+                            key={ci}
+                            className="chapter-comment"
+                            href={comment.permalink}
+                            target={discussions.mock ? undefined : '_blank'}
+                            rel="noreferrer"
+                            onClick={discussions.mock ? (e) => e.preventDefault() : undefined}
+                          >
+                            <span className="chapter-comment-text">“{comment.text}”</span>
+                            <span className="chapter-comment-source">
+                              u/{comment.author} · r/{comment.subreddit}
+                            </span>
+                          </a>
+                        ))}
+                        {discussion.thread && (
+                          <a
+                            className="chapter-thread-link"
+                            href={discussion.thread.permalink}
+                            target={discussions.mock ? undefined : '_blank'}
+                            rel="noreferrer"
+                            onClick={discussions.mock ? (e) => e.preventDefault() : undefined}
+                          >
+                            View the full discussion on r/{discussion.thread.subreddit} →
+                          </a>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </Fragment>
+            )
+          })}
+          {visibleCount < total && <div ref={sentinelRef} className="feed-sentinel" />}
+          {visibleCount >= total && (
+            <div className="feed-end">
+              <span>— end of book —</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

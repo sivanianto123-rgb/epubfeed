@@ -58,11 +58,23 @@ export async function toggleHighlight(id: string, postIndex: number): Promise<bo
   return nowOn
 }
 
-export async function saveSummary(id: string, summary: string): Promise<void> {
+export async function saveChapterSummary(id: string, chapterIndex: number, summary: string): Promise<void> {
   const stored = await get<StoredBook>(bookKey(id))
   if (!stored) return
-  stored.summary = summary
+  stored.chapterSummaries = { ...(stored.chapterSummaries || {}), [chapterIndex]: summary }
   await set(bookKey(id), stored)
+}
+
+export async function toggleBookmark(id: string, chapterIndex: number): Promise<boolean> {
+  const stored = await get<StoredBook>(bookKey(id))
+  if (!stored) return false
+  const bookmarked = new Set(stored.bookmarks || [])
+  const nowOn = !bookmarked.has(chapterIndex)
+  if (nowOn) bookmarked.add(chapterIndex)
+  else bookmarked.delete(chapterIndex)
+  stored.bookmarks = Array.from(bookmarked)
+  await set(bookKey(id), stored)
+  return nowOn
 }
 
 export async function removeBook(id: string): Promise<void> {

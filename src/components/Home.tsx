@@ -103,7 +103,16 @@ export function Home({ onOpenBook, onNavigate }: HomeProps) {
       if (!trimmed) return
       await ingestFromParser(async () => {
         const res = await fetch(`/api/youtube?url=${encodeURIComponent(trimmed)}`)
-        const data = (await res.json()) as { title?: string; author?: string; text?: string; error?: string }
+        let data: { title?: string; author?: string; text?: string; error?: string }
+        try {
+          data = await res.json()
+        } catch {
+          throw new Error(
+            res.ok
+              ? 'Got an unexpected response reading that video.'
+              : `The server responded with ${res.status} ${res.statusText}.`,
+          )
+        }
         if (!res.ok || data.error || !data.text) {
           throw new Error(data.error || 'Could not read that video.')
         }

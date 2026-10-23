@@ -5,7 +5,8 @@ import { buildPosts } from '../lib/chunk'
 import { addBook, getLibrary, removeBook } from '../lib/library'
 import { toHandle } from '../lib/format'
 import { BookIcon, LinkIcon, TrashIcon, UploadIcon } from './Icons'
-import { DoodleStrip } from './Doodles'
+import readingStill from '../assets/reading-still.jpg'
+import readingDoodles from '../assets/reading-doodles.png'
 
 interface HomeProps {
   onOpenBook: (id: string) => void
@@ -120,13 +121,17 @@ export function Home({ onOpenBook }: HomeProps) {
 
   return (
     <div className="home-screen">
-      <header className="home-header" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <BookIcon size={20} className="home-logo-icon" />
-        <span className="home-logo">epubfeed</span>
-        <span className="home-header-eyebrow">Your quiet corner</span>
-      </header>
+      <div className="home-hero-wrap">
+        <img src={readingStill} alt="" className="home-hero-bg" />
+        <div className="home-hero-shade" />
 
-      <div className="hero">
+        <header className="home-header" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <BookIcon size={20} className="home-logo-icon" />
+          <span className="home-logo">epubfeed</span>
+          <span className="home-header-eyebrow">Your quiet corner</span>
+        </header>
+
+        <div className="hero">
         <p className="hero-kicker">One book. A little escape.</p>
         <h1 className="hero-title">epubfeed</h1>
         <p className="hero-sub">
@@ -183,13 +188,14 @@ export function Home({ onOpenBook }: HomeProps) {
           </button>
         </form>
 
-        {error && (
-          <p role="alert" className="hero-error">
-            {error}
-          </p>
-        )}
+          {error && (
+            <p role="alert" className="hero-error">
+              {error}
+            </p>
+          )}
 
-        <DoodleStrip />
+          <img src={readingDoodles} alt="" aria-hidden="true" className="doodle-strip" />
+        </div>
       </div>
 
       {library.length > 0 && <p className="library-section-label">Your shelf</p>}

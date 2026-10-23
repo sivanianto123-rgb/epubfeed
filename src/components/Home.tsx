@@ -5,6 +5,7 @@ import { buildPosts } from '../lib/chunk'
 import { addBook, getLibrary, removeBook } from '../lib/library'
 import { toHandle } from '../lib/format'
 import { BookIcon, LinkIcon, TrashIcon, UploadIcon } from './Icons'
+import { DoodleStrip } from './Doodles'
 
 interface HomeProps {
   onOpenBook: (id: string) => void
@@ -119,39 +120,42 @@ export function Home({ onOpenBook }: HomeProps) {
 
   return (
     <div className="home-screen">
-      <header className="home-header" style={{ display: 'flex', alignItems: 'center' }}>
+      <header className="home-header" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <BookIcon size={20} className="home-logo-icon" />
         <span className="home-logo">epubfeed</span>
-        <span className="home-header-eyebrow">A quiet corner</span>
+        <span className="home-header-eyebrow">Your quiet corner</span>
       </header>
 
       <div className="hero">
         <p className="hero-kicker">One book. A little escape.</p>
-        <h1 className="hero-title">Read it like a feed.</h1>
-        <p className="hero-sub">Drop in an EPUB and scroll through it, one passage at a time.</p>
-      </div>
+        <h1 className="hero-title">epubfeed</h1>
+        <p className="hero-sub">
+          Lose yourself in a good book.
+          <br />
+          One scroll at a time.
+        </p>
 
-      <div
-        className={`drop-zone ${dragging ? 'is-dragging' : ''}`}
-        onDragOver={(e) => {
-          e.preventDefault()
-          setDragging(true)
-        }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={(e) => {
-          e.preventDefault()
-          setDragging(false)
-          const file = e.dataTransfer.files?.[0]
-          if (file) handleFile(file)
-        }}
-        onClick={() => fileInputRef.current?.click()}
-        role="button"
-        tabIndex={0}
-      >
-        <UploadIcon size={28} />
-        <div className="drop-zone-text">
-          <strong>{loading ? 'Reading your book…' : 'Drop an .epub here'}</strong>
-          <span>or click to choose a file</span>
-        </div>
+        <button
+          type="button"
+          className="hero-cta"
+          disabled={loading}
+          onClick={() => fileInputRef.current?.click()}
+          onDragOver={(e) => {
+            e.preventDefault()
+            setDragging(true)
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault()
+            setDragging(false)
+            const file = e.dataTransfer.files?.[0]
+            if (file) handleFile(file)
+          }}
+          data-dragging={dragging || undefined}
+        >
+          <UploadIcon size={18} />
+          {loading ? 'Opening…' : 'Open your EPUB'}
+        </button>
         <input
           ref={fileInputRef}
           type="file"
@@ -163,24 +167,30 @@ export function Home({ onOpenBook }: HomeProps) {
             e.target.value = ''
           }}
         />
+
+        <form className="url-form" onSubmit={handleUrlSubmit}>
+          <LinkIcon size={16} className="url-form-icon" />
+          <input
+            type="text"
+            inputMode="url"
+            placeholder="…or paste a direct link to an .epub"
+            value={url}
+            disabled={loading}
+            onChange={(e) => setUrl(e.target.value)}
+          />
+          <button type="submit" disabled={loading || !url.trim()}>
+            Load
+          </button>
+        </form>
+
+        {error && (
+          <p role="alert" className="hero-error">
+            {error}
+          </p>
+        )}
+
+        <DoodleStrip />
       </div>
-
-      <form className="url-form" onSubmit={handleUrlSubmit}>
-        <LinkIcon size={16} className="url-form-icon" />
-        <input
-          type="text"
-          inputMode="url"
-          placeholder="…or paste a direct link to an .epub"
-          value={url}
-          disabled={loading}
-          onChange={(e) => setUrl(e.target.value)}
-        />
-        <button type="submit" disabled={loading || !url.trim()}>
-          Load
-        </button>
-      </form>
-
-      {error && <div className="home-error">{error}</div>}
 
       {library.length > 0 && <p className="library-section-label">Your shelf</p>}
 
@@ -224,6 +234,11 @@ export function Home({ onOpenBook }: HomeProps) {
           )
         })}
       </div>
+
+      <footer className="home-footer">
+        <span>A space between you and the story.</span>
+        <BookIcon size={18} />
+      </footer>
     </div>
   )
 }

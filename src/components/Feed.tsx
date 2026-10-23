@@ -3,6 +3,7 @@ import type { StoredBook } from '../types'
 import { updateProgress, toggleHighlight } from '../lib/library'
 import { buildCumulativeWords } from '../lib/progress'
 import { toHandle } from '../lib/format'
+import { EMPTY_DISCUSSIONS, buildDiscussionsState, fetchDiscussions, type DiscussionsState } from '../lib/discussions'
 import { PostCard } from './PostCard'
 import { BackIcon } from './Icons'
 
@@ -23,9 +24,12 @@ export function Feed({ book, onBack }: FeedProps) {
   const [visibleCount, setVisibleCount] = useState(Math.min(total, Math.max(meta.currentIndex + BATCH_SIZE, BATCH_SIZE)))
   const [currentIndex, setCurrentIndex] = useState(meta.currentIndex)
   const [highlights, setHighlights] = useState<Set<number>>(() => new Set(book.highlights || []))
+  const [discussions, setDiscussions] = useState<DiscussionsState>(EMPTY_DISCUSSIONS)
+  const [reachedEnd, setReachedEnd] = useState(false)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
+  const endMarkerRef = useRef<HTMLDivElement>(null)
   const restoredRef = useRef(false)
   const visibleSetRef = useRef<Set<number>>(new Set())
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -46,6 +50,33 @@ export function Feed({ book, onBack }: FeedProps) {
     },
     [meta.id],
   )
+
+  // Fetch "what other readers think" once per book and match it to passages.
+  useEffect(() => {
+    let cancelled = false
+    fetchDiscussions(meta.title, meta.author).then((data) => {
+      if (cancelled) return
+      setDiscussions(buildDiscussionsState(posts, data))
+    })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meta.id])
+
+  // Detect when the reader has actually scrolled to the very end of the
+  // feed (not just the word-progress heuristic, which only tracks the top
+  // of the viewport and can't reliably hit 100% right at the tail).
+  useEffect(() => {
+    if (visibleCount < total) return
+    const el = endMarkerRef.current
+    if (!el) return
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) setReachedEnd(true)
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [visibleCount, total])
 
   // Infinite-load sentinel
   useEffect(() => {
@@ -173,11 +204,37 @@ export function Feed({ book, onBack }: FeedProps) {
               threaded={threaded}
               highlighted={highlights.has(i)}
               onToggleHighlight={handleToggleHighlight}
+              passageQuote={discussions.passageMatches.get(i)}
+              chapterThread={post.type === 'heading' ? discussions.chapterThreads.get(post.chapterIndex) : undefined}
+              discussionsMock={discussions.mock}
             />
           )
         })}
         {visibleCount < total && <div ref={sentinelRef} className="feed-sentinel" />}
-        {visibleCount >= total && <div className="feed-end">— end of book —</div>}
+        {visibleCount >= total && (
+          <div className="feed-end" ref={endMarkerRef}>
+            {reachedEnd && discussions.reviews.length > 0 ? (
+              <div className="reviews-panel">
+                <div className="reviews-panel-title">
+                  What readers thought{discussions.mock ? ' (demo)' : ''}
+                </div>
+                {discussions.reviews.map((review, i) => (
+                  <div key={i} className="review-card">
+                    {review.rating != null && (
+                      <div className="review-rating">
+                        {'★'.repeat(review.rating)}
+                        {'☆'.repeat(Math.max(0, 5 - review.rating))}
+                      </div>
+                    )}
+                    <p>{review.text}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <span>— end of book —</span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

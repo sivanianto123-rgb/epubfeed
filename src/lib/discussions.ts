@@ -1,27 +1,24 @@
-import type { BookReview, ChapterThreadInfo, DiscussionsResponse, PassageQuote, Post } from '../types'
+import type { BookReview, ChapterDiscussion, ChapterThreadInfo, DiscussionsResponse, PassageQuote, Post } from '../types'
 
 const MOCK_REACTIONS = [
-  'I had to read this line three times.',
+  'I had to read this chapter three times.',
   'This is the one everyone quotes.',
-  'Okay, this hit different.',
-  'Reread this paragraph like five times.',
+  'Okay, this chapter hit different.',
+  'Reread this ending like five times.',
   'This is where the book really starts for me.',
-  'Still thinking about this line a week later.',
+  'Still thinking about this chapter a week later.',
 ]
 
 export interface DiscussionsState {
   mock: boolean
-  /** postIndex -> the reader comment quoting that passage. */
-  passageMatches: Map<number, PassageQuote>
-  /** chapterIndex of the divider it should render on -> the thread. */
-  chapterThreads: Map<number, ChapterThreadInfo>
+  /** chapterIndex -> the comment-section content to show after that chapter. */
+  chapterDiscussions: Map<number, ChapterDiscussion>
   reviews: BookReview[]
 }
 
 export const EMPTY_DISCUSSIONS: DiscussionsState = {
   mock: false,
-  passageMatches: new Map(),
-  chapterThreads: new Map(),
+  chapterDiscussions: new Map(),
   reviews: [],
 }
 
@@ -89,17 +86,38 @@ function matchPassages(posts: Post[], quotes: PassageQuote[]): Map<number, Passa
   return matches
 }
 
-function mapChapterThreads(threads: ChapterThreadInfo[]): Map<number, ChapterThreadInfo> {
-  const map = new Map<number, ChapterThreadInfo>()
+/** Groups matched reader quotes and chapter-range threads by the chapter
+ * they belong to, so the feed can render one comment section right after
+ * each chapter ends. */
+function groupByChapter(
+  posts: Post[],
+  quotes: PassageQuote[],
+  threads: ChapterThreadInfo[],
+): Map<number, ChapterDiscussion> {
+  const passageMatches = matchPassages(posts, quotes)
+  const commentsByChapter = new Map<number, PassageQuote[]>()
+  passageMatches.forEach((quote, postIndex) => {
+    const ci = posts[postIndex].chapterIndex
+    const list = commentsByChapter.get(ci) || []
+    list.push(quote)
+    commentsByChapter.set(ci, list)
+  })
+
+  const threadByChapter = new Map<number, ChapterThreadInfo>()
   for (const thread of threads) {
-    // throughChapter is 1-based; it should surface on the divider of the
-    // *next* chapter (0-based index === throughChapter), so the reader has
-    // already finished everything the thread discusses.
-    const showAtChapterIndex = thread.throughChapter
-    if (showAtChapterIndex < 1) continue
-    if (!map.has(showAtChapterIndex)) map.set(showAtChapterIndex, thread)
+    // throughChapter is 1-based ("Chapters 1-5" -> 5); the comment section
+    // for that thread belongs after the 0-based chapter at index 4.
+    const ci = thread.throughChapter - 1
+    if (ci < 0) continue
+    if (!threadByChapter.has(ci)) threadByChapter.set(ci, thread)
   }
-  return map
+
+  const chapterIndices = new Set<number>([...commentsByChapter.keys(), ...threadByChapter.keys()])
+  const result = new Map<number, ChapterDiscussion>()
+  for (const ci of chapterIndices) {
+    result.set(ci, { comments: commentsByChapter.get(ci) || [], thread: threadByChapter.get(ci) })
+  }
+  return result
 }
 
 function hashString(s: string): number {
@@ -112,27 +130,23 @@ function hashString(s: string): number {
 }
 
 function synthesizeMock(posts: Post[]): Omit<DiscussionsState, 'mock'> {
-  const passageMatches = new Map<number, PassageQuote>()
-  posts.forEach((post, i) => {
-    if (post.type !== 'text') return
-    if (hashString(`${i}`) % 17 !== 3) return
-    passageMatches.set(i, {
-      text: MOCK_REACTIONS[hashString(post.text) % MOCK_REACTIONS.length],
-      permalink: '#',
-      subreddit: 'demo',
-      author: 'demo_reader',
-    })
-  })
-
-  const chapterThreads = new Map<number, ChapterThreadInfo>()
   const chapterIndices = Array.from(new Set(posts.map((p) => p.chapterIndex))).sort((a, b) => a - b)
-  chapterIndices.forEach((ci, i) => {
-    if (i === 0 || i % 2 !== 1) return
-    chapterThreads.set(ci, {
-      title: 'Demo discussion thread',
-      permalink: '#',
-      subreddit: 'demo',
-      throughChapter: ci,
+  const chapterDiscussions = new Map<number, ChapterDiscussion>()
+
+  chapterIndices.forEach((ci) => {
+    const hasText = posts.some((p) => p.chapterIndex === ci && p.type === 'text')
+    if (!hasText) return
+    const seed = hashString(`chapter-${ci}`)
+    chapterDiscussions.set(ci, {
+      comments: [
+        {
+          text: MOCK_REACTIONS[seed % MOCK_REACTIONS.length],
+          permalink: '#',
+          subreddit: 'demo',
+          author: 'demo_reader',
+        },
+      ],
+      thread: { title: 'Demo discussion thread', permalink: '#', subreddit: 'demo', throughChapter: ci + 1 },
     })
   })
 
@@ -141,7 +155,7 @@ function synthesizeMock(posts: Post[]): Omit<DiscussionsState, 'mock'> {
     { text: 'The ending surprised me more than I expected. (Demo review.)', rating: 5, permalink: null },
   ]
 
-  return { passageMatches, chapterThreads, reviews }
+  return { chapterDiscussions, reviews }
 }
 
 export function buildDiscussionsState(posts: Post[], data: DiscussionsResponse | null): DiscussionsState {
@@ -151,8 +165,7 @@ export function buildDiscussionsState(posts: Post[], data: DiscussionsResponse |
   }
   return {
     mock: false,
-    passageMatches: matchPassages(posts, data.quotes),
-    chapterThreads: mapChapterThreads(data.chapterThreads),
+    chapterDiscussions: groupByChapter(posts, data.quotes, data.chapterThreads),
     reviews: data.reviews,
   }
 }

@@ -44,6 +44,8 @@ export interface StoredBook {
   posts: Post[]
   /** Indices (into `posts`) the reader has starred. */
   highlights?: number[]
+  /** Cached AI-written recap, generated once the reader reaches the end. */
+  summary?: string
 }
 
 /** A reader comment that quotes a specific passage from the book. */
@@ -55,13 +57,20 @@ export interface PassageQuote {
 }
 
 /** A discussion thread covering a run of chapters (e.g. r/bookclub's
- * "Chapters 1-5"). Surfaced only once the reader has read that far. */
+ * "Chapters 1-5"). Surfaced in that chapter's comment section once the
+ * reader has finished it. */
 export interface ChapterThreadInfo {
   title: string
   permalink: string
   subreddit: string
   /** 1-based: the last chapter number this thread's discussion covers. */
   throughChapter: number
+}
+
+/** Everything to show in one chapter's end-of-chapter comment section. */
+export interface ChapterDiscussion {
+  comments: PassageQuote[]
+  thread?: ChapterThreadInfo
 }
 
 export interface BookReview {

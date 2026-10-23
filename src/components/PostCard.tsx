@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { ChapterThreadInfo, PassageQuote, Post } from '../types'
+import type { Post } from '../types'
 import { RichText, visibleLength } from './RichText'
 import { ShareIcon, VerifiedBadge } from './Icons'
 
@@ -14,9 +14,6 @@ interface PostCardProps {
   threaded: boolean
   highlighted: boolean
   onToggleHighlight: (index: number) => void
-  passageQuote?: PassageQuote
-  chapterThread?: ChapterThreadInfo
-  discussionsMock: boolean
 }
 
 function initialsFor(name: string): string {
@@ -37,9 +34,6 @@ export function PostCard({
   threaded,
   highlighted,
   onToggleHighlight,
-  passageQuote,
-  chapterThread,
-  discussionsMock,
 }: PostCardProps) {
   const [expanded, setExpanded] = useState(false)
   const [shareState, setShareState] = useState<'idle' | 'copied'>('idle')
@@ -49,17 +43,6 @@ export function PostCard({
       <div className="chapter-divider" data-index={index}>
         <span className="chapter-divider-ornament" aria-hidden="true">✦</span>
         <span className="chapter-divider-pill">{post.text}</span>
-        {chapterThread && (
-          <a
-            className="chapter-thread-link"
-            href={chapterThread.permalink}
-            target={discussionsMock ? undefined : '_blank'}
-            rel="noreferrer"
-            onClick={discussionsMock ? (e) => e.preventDefault() : undefined}
-          >
-            💬 r/{chapterThread.subreddit} discussed this{discussionsMock ? ' (demo)' : ''} →
-          </a>
-        )}
       </div>
     )
   }
@@ -112,24 +95,6 @@ export function PostCard({
           <button className="show-more" type="button" onClick={() => setExpanded(true)}>
             Show more
           </button>
-        )}
-        {passageQuote && (
-          <a
-            className="reader-quote"
-            href={passageQuote.permalink}
-            target={discussionsMock ? undefined : '_blank'}
-            rel="noreferrer"
-            onClick={discussionsMock ? (e) => e.preventDefault() : undefined}
-          >
-            <span className="reader-quote-icon">💬</span>
-            <span className="reader-quote-body">
-              <span className="reader-quote-text">“{passageQuote.text}”</span>
-              <span className="reader-quote-source">
-                u/{passageQuote.author} · r/{passageQuote.subreddit}
-                {discussionsMock ? ' · demo' : ''}
-              </span>
-            </span>
-          </a>
         )}
         <div className="post-actions">
           <button

@@ -58,6 +58,13 @@ export async function toggleHighlight(id: string, postIndex: number): Promise<bo
   return nowOn
 }
 
+export async function saveSummary(id: string, summary: string): Promise<void> {
+  const stored = await get<StoredBook>(bookKey(id))
+  if (!stored) return
+  stored.summary = summary
+  await set(bookKey(id), stored)
+}
+
 export async function removeBook(id: string): Promise<void> {
   const lib = await getLibrary()
   await saveLibrary(lib.filter((b) => b.id !== id))

@@ -6,7 +6,7 @@ Everything runs client-side in the browser. Your books never leave your device: 
 
 ## Features
 
-- **Drop in an .epub** — parsed entirely in-browser (via [JSZip](https://stuk.github.io/jszip/)), no server, no upload
+- **Drop in an .epub, or paste a link** — parsed entirely in-browser (via [JSZip](https://stuk.github.io/jszip/)), no server, no upload. A URL is fetched directly from your browser, so the host needs to allow cross-origin requests (CORS) for it to work
 - **Feed-ified prose** — chapters are chunked into tweet-sized "posts," with chapter headings rendered as pinned dividers
 - **Dark, X-style UI** — avatar (book cover), display name (title), handle (derived from the author), fake-but-deterministic like/retweet/reply counts for flavor
 - **Infinite scroll** — posts render in batches as you scroll

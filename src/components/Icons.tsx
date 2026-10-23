@@ -123,6 +123,16 @@ export function LinkIcon({ size = 18, className }: IconProps) {
   )
 }
 
+export function VideoIcon({ size = 18, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+      <rect x="2.5" y="5.5" width="14" height="13" rx="2.5" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M21.5 9.2 17 11.6v.8l4.5 2.4a1 1 0 0 0 1.5-.9V10a1 1 0 0 0-1.5-.8Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+      <path d="M8 9.5v5l4-2.5-4-2.5Z" fill="currentColor" />
+    </svg>
+  )
+}
+
 export function UploadIcon({ size = 22, className }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>

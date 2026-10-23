@@ -128,6 +128,23 @@ img {
   color: var(--text-secondary);
 }
 
+.home-nav {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  margin-left: auto;
+}
+
+.home-nav button {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.home-nav button:hover {
+  color: var(--text-primary);
+}
+
 .hero {
   position: relative;
   z-index: 1;
@@ -165,33 +182,44 @@ img {
   margin: 18px 0 0;
 }
 
-.hero-cta {
+.hero-dropzone {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 14px;
   margin-top: 28px;
-  padding: 13px 22px;
-  border-radius: 10px;
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-weight: 700;
+  padding: 18px 22px;
+  border: 1px dashed var(--border);
+  border-radius: 14px;
+  background: color-mix(in oklch, var(--bg) 55%, transparent);
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s;
+  max-width: 440px;
+}
+
+.hero-dropzone:hover,
+.hero-dropzone.is-dragging {
+  border-color: var(--accent);
+  background: color-mix(in oklch, var(--accent) 8%, var(--bg));
+}
+
+.hero-dropzone-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.hero-dropzone-text strong {
   font-size: 15px;
-  transition: opacity 0.15s, outline-color 0.15s;
-  outline: 2px solid transparent;
-  outline-offset: 2px;
+  color: var(--text-primary);
 }
 
-.hero-cta:hover {
-  opacity: 0.9;
+.hero-dropzone-text span {
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
-.hero-cta:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.hero-cta[data-dragging] {
-  outline-color: var(--accent);
+.youtube-form {
+  max-width: 440px;
 }
 
 .hero-error {
@@ -842,4 +870,66 @@ img {
   .hero {
     padding: 100px 24px 80px;
   }
+
+  .home-nav {
+    gap: 16px;
+  }
+}
+
+/* ---------- Static pages (About / Formats / FAQ) ---------- */
+
+.static-page {
+  max-width: 680px;
+  margin: 0 auto;
+  min-height: 100%;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+
+.static-page-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: color-mix(in oklch, var(--bg) 85%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+}
+
+.static-page-title {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.static-page-body {
+  padding: 24px 24px 80px;
+}
+
+.static-page-body > p {
+  font-family: var(--font-reading);
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--text-primary);
+  margin: 0 0 20px;
+}
+
+.format-entry {
+  margin-bottom: 28px;
+}
+
+.format-entry h3 {
+  font-family: var(--font-reading);
+  font-size: 19px;
+  font-weight: 500;
+  margin: 0 0 8px;
+}
+
+.format-entry p {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin: 0;
 }

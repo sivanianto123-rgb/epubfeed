@@ -116,6 +116,58 @@ img {
   font-size: 13px;
 }
 
+.url-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 16px 16px;
+  padding: 4px 4px 4px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-elevated);
+}
+
+.url-form:focus-within {
+  border-color: var(--accent);
+}
+
+.url-form-icon {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.url-form input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  padding: 8px 0;
+}
+
+.url-form input::placeholder {
+  color: var(--text-secondary);
+}
+
+.url-form button {
+  flex-shrink: 0;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  transition: opacity 0.15s;
+}
+
+.url-form button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .home-error {
   margin: 0 16px 16px;
   padding: 12px 14px;

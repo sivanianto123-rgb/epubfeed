@@ -98,6 +98,31 @@ export function VerifiedBadge({ size = 16, className }: IconProps) {
   )
 }
 
+export function LinkIcon({ size = 18, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+      <path
+        d="M9.5 14.5 14.5 9.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <path
+        d="M11 7.5 12.3 6.2a3.5 3.5 0 0 1 4.9 0l.6.6a3.5 3.5 0 0 1 0 4.9L16.5 13"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <path
+        d="M13 16.5 11.7 17.8a3.5 3.5 0 0 1-4.9 0l-.6-.6a3.5 3.5 0 0 1 0-4.9L7.5 11"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
 export function UploadIcon({ size = 22, className }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>

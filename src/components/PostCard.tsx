@@ -47,6 +47,7 @@ export function PostCard({
   if (post.type === 'heading') {
     return (
       <div className="chapter-divider" data-index={index}>
+        <span className="chapter-divider-ornament" aria-hidden="true">✦</span>
         <span className="chapter-divider-pill">{post.text}</span>
         {chapterThread && (
           <a

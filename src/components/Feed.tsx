@@ -190,6 +190,18 @@ export function Feed({ book, onBack }: FeedProps) {
         <div className="feed-progress-fill" style={{ width: `${progressPct}%` }} />
       </div>
       <div className="feed-scroll" ref={containerRef}>
+        <div className="frontispiece">
+          {meta.coverDataUrl ? (
+            <img className="frontispiece-cover" src={meta.coverDataUrl} alt="" />
+          ) : (
+            <div className="frontispiece-cover-fallback">
+              <span>{meta.title}</span>
+            </div>
+          )}
+          <p className="frontispiece-kicker">Now reading</p>
+          <h2 className="frontispiece-title">{meta.title}</h2>
+          <p className="frontispiece-author">by {meta.author}</p>
+        </div>
         {visiblePosts.map((post, i) => {
           const next = posts[i + 1]
           const threaded = post.type === 'text' && !!next && next.type === 'text' && next.chapterIndex === post.chapterIndex

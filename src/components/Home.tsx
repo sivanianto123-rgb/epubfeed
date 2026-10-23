@@ -119,9 +119,16 @@ export function Home({ onOpenBook }: HomeProps) {
 
   return (
     <div className="home-screen">
-      <header className="home-header">
+      <header className="home-header" style={{ display: 'flex', alignItems: 'center' }}>
         <span className="home-logo">epubfeed</span>
+        <span className="home-header-eyebrow">A quiet corner</span>
       </header>
+
+      <div className="hero">
+        <p className="hero-kicker">One book. A little escape.</p>
+        <h1 className="hero-title">Read it like a feed.</h1>
+        <p className="hero-sub">Drop in an EPUB and scroll through it, one passage at a time.</p>
+      </div>
 
       <div
         className={`drop-zone ${dragging ? 'is-dragging' : ''}`}
@@ -175,11 +182,13 @@ export function Home({ onOpenBook }: HomeProps) {
 
       {error && <div className="home-error">{error}</div>}
 
+      {library.length > 0 && <p className="library-section-label">Your shelf</p>}
+
       <div className="library-list">
         {library.length === 0 && !loading && (
           <div className="library-empty">
             <BookIcon size={32} className="library-empty-icon" />
-            <p>Your feed is empty. Upload a book to start scrolling.</p>
+            <p>Nothing here yet — open a book above to begin.</p>
           </div>
         )}
         {library.map((entry) => {

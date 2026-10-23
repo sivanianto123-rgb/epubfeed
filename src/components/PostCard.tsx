@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import type { ChapterThreadInfo, PassageQuote, Post } from '../types'
-import { statsFor, formatCount } from '../lib/fakeStats'
 import { RichText, visibleLength } from './RichText'
-import { ReplyIcon, ShareIcon, VerifiedBadge } from './Icons'
+import { ShareIcon, VerifiedBadge } from './Icons'
 
 const CLAMP_THRESHOLD = 280
 
@@ -43,7 +42,7 @@ export function PostCard({
   discussionsMock,
 }: PostCardProps) {
   const [expanded, setExpanded] = useState(false)
-  const stats = statsFor(post.text, String(index))
+  const [shareState, setShareState] = useState<'idle' | 'copied'>('idle')
 
   if (post.type === 'heading') {
     return (
@@ -66,6 +65,26 @@ export function PostCard({
 
   const isLong = visibleLength(post.text) > CLAMP_THRESHOLD
   const timeLeft = post.minutesLeft <= 1 ? '<1m left' : `${post.minutesLeft}m left`
+  const plainText = post.text.replace(/[_*]/g, '')
+
+  const handleShare = async () => {
+    const shareData = { text: `"${plainText}" — ${displayName}, ${post.chapterTitle}` }
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData)
+      } catch {
+        // User cancelled the share sheet — not an error.
+      }
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(shareData.text)
+      setShareState('copied')
+      setTimeout(() => setShareState('idle'), 1500)
+    } catch {
+      // Clipboard access denied — nothing more we can do silently.
+    }
+  }
 
   return (
     <article className={`post-card ${threaded ? 'post-card--threaded' : ''}`} data-index={index}>
@@ -112,14 +131,6 @@ export function PostCard({
           </a>
         )}
         <div className="post-actions">
-          <button className="post-action" type="button" aria-label="Reply">
-            <ReplyIcon size={17} />
-            <span>{formatCount(stats.replies)}</span>
-          </button>
-          <span className="post-action post-action--static" aria-label="Readers">
-            <span className="post-action-emoji">💬</span>
-            <span>{formatCount(stats.likes)} readers</span>
-          </span>
           <button
             className={`post-action ${highlighted ? 'is-highlighted' : ''}`}
             type="button"
@@ -129,8 +140,9 @@ export function PostCard({
             <span className="post-action-emoji">{highlighted ? '★' : '☆'}</span>
             <span>Highlight</span>
           </button>
-          <button className="post-action" type="button" aria-label="Share">
+          <button className="post-action" type="button" aria-label="Share" onClick={handleShare}>
             <ShareIcon size={16} />
+            <span>{shareState === 'copied' ? 'Copied!' : 'Share'}</span>
           </button>
         </div>
       </div>

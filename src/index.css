@@ -58,17 +58,21 @@ img {
 /* ---------- Home / Library ---------- */
 
 .home-screen {
-  max-width: 600px;
-  margin: 0 auto;
   min-height: 100%;
-  border-left: 1px solid var(--border);
-  border-right: 1px solid var(--border);
+}
+
+.home-container {
+  width: 100%;
+  max-width: 820px;
+  margin: 0 auto;
 }
 
 .home-hero-wrap {
   position: relative;
   isolation: isolate;
-  overflow: hidden;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
 }
 
 .home-hero-bg {
@@ -85,10 +89,10 @@ img {
   position: absolute;
   inset: 0;
   background: linear-gradient(
-    180deg,
-    color-mix(in oklch, var(--bg) 60%, transparent) 0%,
-    color-mix(in oklch, var(--bg) 90%, transparent) 55%,
-    var(--bg) 100%
+    90deg,
+    color-mix(in oklch, var(--bg) 97%, transparent),
+    color-mix(in oklch, var(--bg) 78%, transparent) 30%,
+    transparent 72%
   );
   z-index: -1;
 }
@@ -96,7 +100,14 @@ img {
 .home-header {
   position: relative;
   z-index: 1;
-  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 30px 32px;
+  font-weight: 700;
 }
 
 .home-logo-icon {
@@ -120,7 +131,10 @@ img {
 .hero {
   position: relative;
   z-index: 1;
-  padding: 72px 24px 48px;
+  width: 100%;
+  max-width: 1200px;
+  margin: auto;
+  padding: 70px 64px 100px;
   text-align: left;
 }
 
@@ -804,9 +818,28 @@ img {
 }
 
 @media (max-width: 640px) {
-  .home-screen,
   .feed-screen {
     border-left: none;
     border-right: none;
+  }
+
+  .home-hero-bg {
+    object-position: 62% center;
+  }
+
+  .home-hero-shade {
+    background: color-mix(in oklch, var(--bg) 65%, transparent);
+  }
+
+  .home-header {
+    padding: 24px;
+  }
+
+  .home-header-eyebrow {
+    display: none;
+  }
+
+  .hero {
+    padding: 100px 24px 80px;
   }
 }

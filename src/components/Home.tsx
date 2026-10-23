@@ -198,47 +198,49 @@ export function Home({ onOpenBook }: HomeProps) {
         </div>
       </div>
 
-      {library.length > 0 && <p className="library-section-label">Your shelf</p>}
+      <div className="home-container">
+        {library.length > 0 && <p className="library-section-label">Your shelf</p>}
 
-      <div className="library-list">
-        {library.length === 0 && !loading && (
-          <div className="library-empty">
-            <BookIcon size={32} className="library-empty-icon" />
-            <p>Nothing here yet — open a book above to begin.</p>
-          </div>
-        )}
-        {library.map((entry) => {
-          const pct = entry.progressPct
-          return (
-            <div key={entry.id} className="library-card" onClick={() => onOpenBook(entry.id)}>
-              <div className="library-cover">
-                {entry.coverDataUrl ? (
-                  <img src={entry.coverDataUrl} alt="" />
-                ) : (
-                  <BookIcon size={24} />
-                )}
-              </div>
-              <div className="library-info">
-                <div className="library-title">{entry.title}</div>
-                <div className="library-sub">{toHandle(entry.author)}</div>
-                <div className="library-progress-track">
-                  <div className="library-progress-fill" style={{ width: `${pct}%` }} />
-                </div>
-                <div className="library-progress-label">
-                  {entry.currentIndex > 0 ? `${pct}% read` : 'Not started'}
-                </div>
-              </div>
-              <button
-                className="library-delete"
-                type="button"
-                aria-label={`Remove ${entry.title}`}
-                onClick={(e) => handleDelete(entry.id, e)}
-              >
-                <TrashIcon size={16} />
-              </button>
+        <div className="library-list">
+          {library.length === 0 && !loading && (
+            <div className="library-empty">
+              <BookIcon size={32} className="library-empty-icon" />
+              <p>Nothing here yet — open a book above to begin.</p>
             </div>
-          )
-        })}
+          )}
+          {library.map((entry) => {
+            const pct = entry.progressPct
+            return (
+              <div key={entry.id} className="library-card" onClick={() => onOpenBook(entry.id)}>
+                <div className="library-cover">
+                  {entry.coverDataUrl ? (
+                    <img src={entry.coverDataUrl} alt="" />
+                  ) : (
+                    <BookIcon size={24} />
+                  )}
+                </div>
+                <div className="library-info">
+                  <div className="library-title">{entry.title}</div>
+                  <div className="library-sub">{toHandle(entry.author)}</div>
+                  <div className="library-progress-track">
+                    <div className="library-progress-fill" style={{ width: `${pct}%` }} />
+                  </div>
+                  <div className="library-progress-label">
+                    {entry.currentIndex > 0 ? `${pct}% read` : 'Not started'}
+                  </div>
+                </div>
+                <button
+                  className="library-delete"
+                  type="button"
+                  aria-label={`Remove ${entry.title}`}
+                  onClick={(e) => handleDelete(entry.id, e)}
+                >
+                  <TrashIcon size={16} />
+                </button>
+              </div>
+            )
+          })}
+        </div>
       </div>
 
       <footer className="home-footer">

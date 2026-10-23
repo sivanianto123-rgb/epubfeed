@@ -183,7 +183,7 @@ export function Home({ onOpenBook }: HomeProps) {
           </div>
         )}
         {library.map((entry) => {
-          const pct = entry.totalPosts > 0 ? Math.round(((entry.currentIndex + 1) / entry.totalPosts) * 100) : 0
+          const pct = entry.progressPct
           return (
             <div key={entry.id} className="library-card" onClick={() => onOpenBook(entry.id)}>
               <div className="library-cover">

@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import type { Post } from '../types'
 import { statsFor, formatCount } from '../lib/fakeStats'
-import { HeartIcon, ReplyIcon, RetweetIcon, ShareIcon, VerifiedBadge } from './Icons'
+import { RichText, visibleLength } from './RichText'
+import { ReplyIcon, ShareIcon, VerifiedBadge } from './Icons'
+
+const CLAMP_THRESHOLD = 280
 
 interface PostCardProps {
   post: Post
@@ -9,6 +12,9 @@ interface PostCardProps {
   displayName: string
   handle: string
   avatar: string | null
+  threaded: boolean
+  highlighted: boolean
+  onToggleHighlight: (index: number) => void
 }
 
 function initialsFor(name: string): string {
@@ -20,9 +26,17 @@ function initialsFor(name: string): string {
     .join('')
 }
 
-export function PostCard({ post, index, displayName, handle, avatar }: PostCardProps) {
-  const [liked, setLiked] = useState(false)
-  const [retweeted, setRetweeted] = useState(false)
+export function PostCard({
+  post,
+  index,
+  displayName,
+  handle,
+  avatar,
+  threaded,
+  highlighted,
+  onToggleHighlight,
+}: PostCardProps) {
+  const [expanded, setExpanded] = useState(false)
   const stats = statsFor(post.text, String(index))
 
   if (post.type === 'heading') {
@@ -33,13 +47,16 @@ export function PostCard({ post, index, displayName, handle, avatar }: PostCardP
     )
   }
 
-  const likeCount = stats.likes + (liked ? 1 : 0)
-  const retweetCount = stats.retweets + (retweeted ? 1 : 0)
+  const isLong = visibleLength(post.text) > CLAMP_THRESHOLD
+  const timeLeft = post.minutesLeft <= 1 ? '<1m left' : `${post.minutesLeft}m left`
 
   return (
-    <article className="post-card" data-index={index}>
-      <div className="post-avatar">
-        {avatar ? <img src={avatar} alt="" /> : <span>{initialsFor(displayName)}</span>}
+    <article className={`post-card ${threaded ? 'post-card--threaded' : ''}`} data-index={index}>
+      <div className="post-avatar-col">
+        <div className="post-avatar">
+          {avatar ? <img src={avatar} alt="" /> : <span>{initialsFor(displayName)}</span>}
+        </div>
+        {threaded && <div className="thread-line" />}
       </div>
       <div className="post-body">
         <div className="post-head">
@@ -47,31 +64,35 @@ export function PostCard({ post, index, displayName, handle, avatar }: PostCardP
           <VerifiedBadge className="post-verified" size={15} />
           <span className="post-handle">{handle}</span>
           <span className="post-dot">·</span>
-          <span className="post-meta">{post.chapterTitle}</span>
+          <span className="post-meta">
+            {post.chapterTitle} · {timeLeft}
+          </span>
         </div>
-        <p className="post-text">{post.text}</p>
+        <p className={`post-text ${isLong && !expanded ? 'is-clamped' : ''}`}>
+          <RichText text={post.text} />
+        </p>
+        {isLong && !expanded && (
+          <button className="show-more" type="button" onClick={() => setExpanded(true)}>
+            Show more
+          </button>
+        )}
         <div className="post-actions">
           <button className="post-action" type="button" aria-label="Reply">
             <ReplyIcon size={17} />
             <span>{formatCount(stats.replies)}</span>
           </button>
+          <span className="post-action post-action--static" aria-label="Readers">
+            <span className="post-action-emoji">💬</span>
+            <span>{formatCount(stats.likes)} readers</span>
+          </span>
           <button
-            className={`post-action ${retweeted ? 'is-retweeted' : ''}`}
+            className={`post-action ${highlighted ? 'is-highlighted' : ''}`}
             type="button"
-            aria-label="Retweet"
-            onClick={() => setRetweeted((v) => !v)}
+            aria-label="Highlight"
+            onClick={() => onToggleHighlight(index)}
           >
-            <RetweetIcon size={17} />
-            <span>{formatCount(retweetCount)}</span>
-          </button>
-          <button
-            className={`post-action ${liked ? 'is-liked' : ''}`}
-            type="button"
-            aria-label="Like"
-            onClick={() => setLiked((v) => !v)}
-          >
-            <HeartIcon size={17} filled={liked} />
-            <span>{formatCount(likeCount)}</span>
+            <span className="post-action-emoji">{highlighted ? '★' : '☆'}</span>
+            <span>Highlight</span>
           </button>
           <button className="post-action" type="button" aria-label="Share">
             <ShareIcon size={16} />

@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { StoredBook } from '../types'
-import { updateProgress } from '../lib/library'
+import { updateProgress, toggleHighlight } from '../lib/library'
+import { buildCumulativeWords } from '../lib/progress'
 import { toHandle } from '../lib/format'
 import { PostCard } from './PostCard'
 import { BackIcon } from './Icons'
@@ -14,11 +15,14 @@ const BATCH_SIZE = 24
 
 export function Feed({ book, onBack }: FeedProps) {
   const { meta, posts } = book
-  const handle = useMemo(() => toHandle(meta.author), [meta.author])
+  const handle = useMemo(() => toHandle(meta.title), [meta.title])
   const total = posts.length
+
+  const { cumulative, total: totalWords } = useMemo(() => buildCumulativeWords(posts), [posts])
 
   const [visibleCount, setVisibleCount] = useState(Math.min(total, Math.max(meta.currentIndex + BATCH_SIZE, BATCH_SIZE)))
   const [currentIndex, setCurrentIndex] = useState(meta.currentIndex)
+  const [highlights, setHighlights] = useState<Set<number>>(() => new Set(book.highlights || []))
 
   const containerRef = useRef<HTMLDivElement>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
@@ -29,6 +33,19 @@ export function Feed({ book, onBack }: FeedProps) {
   currentIndexRef.current = currentIndex
 
   const visiblePosts = posts.slice(0, visibleCount)
+
+  const handleToggleHighlight = useCallback(
+    (index: number) => {
+      setHighlights((prev) => {
+        const next = new Set(prev)
+        if (next.has(index)) next.delete(index)
+        else next.add(index)
+        return next
+      })
+      toggleHighlight(meta.id, index)
+    },
+    [meta.id],
+  )
 
   // Infinite-load sentinel
   useEffect(() => {
@@ -122,7 +139,10 @@ export function Feed({ book, onBack }: FeedProps) {
     return () => window.removeEventListener('keydown', handler)
   }, [currentIndex, total])
 
-  const progressPct = total > 0 ? Math.min(100, Math.round(((currentIndex + 1) / total) * 100)) : 0
+  const progressPct =
+    totalWords > 0 && total > 0
+      ? Math.min(100, Math.round((cumulative[Math.min(currentIndex, total - 1)] / totalWords) * 100))
+      : 0
 
   return (
     <div className="feed-screen">
@@ -139,16 +159,23 @@ export function Feed({ book, onBack }: FeedProps) {
         <div className="feed-progress-fill" style={{ width: `${progressPct}%` }} />
       </div>
       <div className="feed-scroll" ref={containerRef}>
-        {visiblePosts.map((post, i) => (
-          <PostCard
-            key={i}
-            post={post}
-            index={i}
-            displayName={meta.title}
-            handle={handle}
-            avatar={meta.coverDataUrl}
-          />
-        ))}
+        {visiblePosts.map((post, i) => {
+          const next = posts[i + 1]
+          const threaded = post.type === 'text' && !!next && next.type === 'text' && next.chapterIndex === post.chapterIndex
+          return (
+            <PostCard
+              key={i}
+              post={post}
+              index={i}
+              displayName={meta.author}
+              handle={handle}
+              avatar={meta.coverDataUrl}
+              threaded={threaded}
+              highlighted={highlights.has(i)}
+              onToggleHighlight={handleToggleHighlight}
+            />
+          )
+        })}
         {visibleCount < total && <div ref={sentinelRef} className="feed-sentinel" />}
         {visibleCount >= total && <div className="feed-end">— end of book —</div>}
       </div>

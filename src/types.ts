@@ -45,3 +45,36 @@ export interface StoredBook {
   /** Indices (into `posts`) the reader has starred. */
   highlights?: number[]
 }
+
+/** A reader comment that quotes a specific passage from the book. */
+export interface PassageQuote {
+  text: string
+  permalink: string
+  subreddit: string
+  author: string
+}
+
+/** A discussion thread covering a run of chapters (e.g. r/bookclub's
+ * "Chapters 1-5"). Surfaced only once the reader has read that far. */
+export interface ChapterThreadInfo {
+  title: string
+  permalink: string
+  subreddit: string
+  /** 1-based: the last chapter number this thread's discussion covers. */
+  throughChapter: number
+}
+
+export interface BookReview {
+  text: string
+  rating: number | null
+  permalink: string | null
+}
+
+export interface DiscussionsResponse {
+  quotes: PassageQuote[]
+  chapterThreads: ChapterThreadInfo[]
+  reviews: BookReview[]
+  /** True when no Reddit/Hardcover credentials are configured server-side
+   * and this is synthesized demo data, not real reader discussion. */
+  mock: boolean
+}

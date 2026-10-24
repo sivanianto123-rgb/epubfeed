@@ -10,7 +10,12 @@ interface CaptionTrack {
   kind?: string
 }
 
-const FETCH_TIMEOUT_MS = 8000
+// Vercel's default Serverless Function execution limit is 10s — these two
+// fetches happen sequentially, so their timeouts must sum to comfortably
+// less than that (not 8s each, which can total 16s and get the whole
+// function killed by the platform before it can return its own JSON error).
+const PAGE_FETCH_TIMEOUT_MS = 5500
+const CAPTION_FETCH_TIMEOUT_MS = 3000
 
 function extractVideoId(input: string): string | null {
   try {
@@ -37,7 +42,7 @@ function decodeEntities(s: string): string {
     .replace(/\n/g, ' ')
 }
 
-async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = FETCH_TIMEOUT_MS): Promise<Response> {
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
@@ -117,9 +122,11 @@ export async function fetchYoutubeTranscript(input: string): Promise<TranscriptR
   const videoId = extractVideoId(input)
   if (!videoId) throw new Error('Could not find a YouTube video ID in that link.')
 
-  const pageRes = await fetchWithTimeout(`https://www.youtube.com/watch?v=${videoId}`, {
-    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; epubfeed/1.0)' },
-  })
+  const pageRes = await fetchWithTimeout(
+    `https://www.youtube.com/watch?v=${videoId}`,
+    { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; epubfeed/1.0)' } },
+    PAGE_FETCH_TIMEOUT_MS,
+  )
   if (!pageRes.ok) throw new Error(`Could not load that YouTube video (${pageRes.status}).`)
   const html = await pageRes.text()
 
@@ -152,7 +159,7 @@ export async function fetchYoutubeTranscript(input: string): Promise<TranscriptR
     tracks[0]
   if (!track) throw new Error('This video has no captions/transcript available.')
 
-  const captionRes = await fetchWithTimeout(track.baseUrl)
+  const captionRes = await fetchWithTimeout(track.baseUrl, {}, CAPTION_FETCH_TIMEOUT_MS)
   if (!captionRes.ok) throw new Error('Could not fetch the transcript for this video.')
   const xml = await captionRes.text()
 

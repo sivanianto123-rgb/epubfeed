@@ -145,6 +145,77 @@ img {
   color: var(--text-primary);
 }
 
+.auth-widget {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.auth-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 7px 16px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.auth-button:hover {
+  opacity: 0.9;
+}
+
+.auth-button:disabled {
+  opacity: 0.6;
+}
+
+.auth-button--signed-in {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 4px 12px 4px 4px;
+}
+
+.auth-button--signed-in:hover {
+  border-color: var(--accent);
+}
+
+.auth-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.auth-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 800;
+}
+
+.auth-name {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auth-error {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 640px) {
+  .auth-name {
+    display: none;
+  }
+}
+
 .hero {
   position: relative;
   z-index: 1;

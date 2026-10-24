@@ -3,8 +3,10 @@ import type { LibraryEntry, ParsedBook } from '../types'
 import { parseEpub } from '../lib/epubParser'
 import { buildChaptersFromPlainText, fetchTopicSections } from '../lib/plainTextChapters'
 import { buildPosts } from '../lib/chunk'
-import { addBook, getLibrary, removeBook } from '../lib/library'
+import { addBook, getLibrary, pullCloudLibrary, removeBook } from '../lib/library'
 import { toHandle } from '../lib/format'
+import { useAuth } from '../hooks/useAuth'
+import { AuthButton } from './AuthButton'
 import { BookIcon, TrashIcon, UploadIcon, VideoIcon } from './Icons'
 import readingStill from '../assets/reading-still.jpg'
 import readingDoodles from '../assets/reading-doodles.png'
@@ -21,6 +23,7 @@ export function Home({ onOpenBook, onNavigate }: HomeProps) {
   const [dragging, setDragging] = useState(false)
   const [youtubeUrl, setYoutubeUrl] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const user = useAuth()
 
   const refresh = useCallback(async () => {
     setLibrary(await getLibrary())
@@ -29,6 +32,19 @@ export function Home({ onOpenBook, onNavigate }: HomeProps) {
   useEffect(() => {
     refresh()
   }, [refresh])
+
+  // Once signed in, pull any books this account has synced from another
+  // device but doesn't have locally yet.
+  useEffect(() => {
+    if (!user) return
+    let cancelled = false
+    pullCloudLibrary(user.uid).then((pulledAny) => {
+      if (!cancelled && pulledAny) refresh()
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [user, refresh])
 
   const ingestFromParser = useCallback(
     async (parserFn: () => Promise<ParsedBook>, fallbackErrorMsg: string) => {
@@ -151,6 +167,7 @@ export function Home({ onOpenBook, onNavigate }: HomeProps) {
             <button type="button" onClick={() => onNavigate('faq')}>
               FAQ
             </button>
+            <AuthButton />
           </nav>
         </header>
 

@@ -16,19 +16,37 @@ interface PlayerResponse {
   captions?: { playerCaptionsTracklistRenderer?: { captionTracks?: CaptionTrack[] } }
 }
 
-// Vercel's default Serverless Function execution limit is 10s — these two
-// fetches happen sequentially, so their timeouts must sum to comfortably
-// less than that.
-const PLAYER_FETCH_TIMEOUT_MS = 5500
-const CAPTION_FETCH_TIMEOUT_MS = 3000
+// Vercel's default Serverless Function execution limit is 10s — up to two
+// player-API attempts plus the caption fetch happen sequentially, so their
+// timeouts must sum to comfortably less than that.
+const PLAYER_FETCH_TIMEOUT_MS = 3000
+const CAPTION_FETCH_TIMEOUT_MS = 2000
 
-// YouTube's own public "WEB" client key and the internal player endpoint its
-// web frontend calls — the same technique widely-used YouTube tools (e.g.
-// yt-dlp) rely on, and far more reliable than scraping the watch page's
-// HTML for embedded JSON, which YouTube has increasingly stripped caption
-// data from in recent years.
-const INNERTUBE_API_KEY = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8'
-const INNERTUBE_ENDPOINT = `https://www.youtube.com/youtubei/v1/player?key=${INNERTUBE_API_KEY}`
+interface ClientConfig {
+  key: string
+  clientName: string
+  clientVersion: string
+  extra?: Record<string, unknown>
+}
+
+// YouTube's internal player endpoint, called with its own public client
+// keys — the same technique widely-used YouTube tools (e.g. yt-dlp) rely
+// on, and far more reliable than scraping the watch page's HTML for
+// embedded JSON, which YouTube has increasingly stripped caption data
+// from in recent years. Tried in order: the "WEB" client is attempted
+// first, but YouTube's anti-bot wall ("Sign in to confirm you're not a
+// bot") applies much more aggressively to it from cloud/datacenter IPs
+// than to the "ANDROID" client, which the official Android app itself
+// uses — so that's the fallback when WEB gets blocked.
+const CLIENT_CONFIGS: ClientConfig[] = [
+  { key: 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8', clientName: 'WEB', clientVersion: '2.20240530.01.00' },
+  {
+    key: 'AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w',
+    clientName: 'ANDROID',
+    clientVersion: '19.09.37',
+    extra: { androidSdkVersion: 30 },
+  },
+]
 
 function extractVideoId(input: string): string | null {
   try {
@@ -70,9 +88,15 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: nu
   }
 }
 
-async function fetchPlayerResponse(videoId: string): Promise<PlayerResponse> {
+function isBotBlocked(player: PlayerResponse): boolean {
+  const status = player.playabilityStatus?.status
+  const reason = player.playabilityStatus?.reason || ''
+  return status === 'LOGIN_REQUIRED' || /not a bot/i.test(reason)
+}
+
+async function fetchPlayerResponseWithClient(videoId: string, config: ClientConfig): Promise<PlayerResponse> {
   const res = await fetchWithTimeout(
-    INNERTUBE_ENDPOINT,
+    `https://www.youtube.com/youtubei/v1/player?key=${config.key}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -80,10 +104,11 @@ async function fetchPlayerResponse(videoId: string): Promise<PlayerResponse> {
         videoId,
         context: {
           client: {
-            clientName: 'WEB',
-            clientVersion: '2.20240530.01.00',
+            clientName: config.clientName,
+            clientVersion: config.clientVersion,
             hl: 'en',
             gl: 'US',
+            ...config.extra,
           },
         },
       }),
@@ -92,6 +117,20 @@ async function fetchPlayerResponse(videoId: string): Promise<PlayerResponse> {
   )
   if (!res.ok) throw new Error(`Could not load that YouTube video (${res.status}).`)
   return (await res.json()) as PlayerResponse
+}
+
+/** Tries each client config in order, stopping at the first one that
+ * isn't itself blocked by YouTube's anti-bot wall. If every config gets
+ * blocked, returns the last response anyway so the caller can report the
+ * real (blocked) reason rather than a generic failure. */
+async function fetchPlayerResponse(videoId: string): Promise<PlayerResponse> {
+  let last: PlayerResponse | null = null
+  for (const config of CLIENT_CONFIGS) {
+    const player = await fetchPlayerResponseWithClient(videoId, config)
+    if (!isBotBlocked(player)) return player
+    last = player
+  }
+  return last as PlayerResponse
 }
 
 /**

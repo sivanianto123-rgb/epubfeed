@@ -109,7 +109,13 @@ export async function fetchYoutubeTranscript(input: string): Promise<TranscriptR
 
   const status = player.playabilityStatus?.status
   if (status && status !== 'OK') {
-    throw new Error(player.playabilityStatus?.reason || 'This video is not available.')
+    const reason = player.playabilityStatus?.reason || ''
+    if (status === 'LOGIN_REQUIRED' || /not a bot/i.test(reason)) {
+      throw new Error(
+        'YouTube is blocking automated requests from this server right now. This is a known restriction on cloud-hosted requests, not a bug — try again later, or use a different source for this content.',
+      )
+    }
+    throw new Error(reason || 'This video is not available.')
   }
 
   const title = player.videoDetails?.title || 'YouTube video'

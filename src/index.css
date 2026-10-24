@@ -67,6 +67,12 @@ img {
   margin: 0 auto;
 }
 
+.home-account-row {
+  display: flex;
+  justify-content: flex-end;
+  padding: 20px 16px 0;
+}
+
 .home-hero-wrap {
   position: relative;
   isolation: isolate;
@@ -172,7 +178,7 @@ img {
 }
 
 .auth-button--signed-in {
-  background: transparent;
+  background: var(--bg-elevated);
   border: 1px solid var(--border);
   color: var(--text-primary);
   padding: 4px 12px 4px 4px;

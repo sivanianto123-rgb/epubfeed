@@ -167,7 +167,6 @@ export function Home({ onOpenBook, onNavigate }: HomeProps) {
             <button type="button" onClick={() => onNavigate('faq')}>
               FAQ
             </button>
-            <AuthButton />
           </nav>
         </header>
 
@@ -238,6 +237,10 @@ export function Home({ onOpenBook, onNavigate }: HomeProps) {
       </div>
 
       <div className="home-container">
+        <div className="home-account-row">
+          <AuthButton />
+        </div>
+
         {library.length > 0 && <p className="library-section-label">Your library</p>}
 
         <div className="library-list">

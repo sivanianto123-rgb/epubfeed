@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { fetchYoutubeTranscript } from './_lib/youtube'
+import { fetchYoutubeTranscript } from './_lib/youtube.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const url = typeof req.query.url === 'string' ? req.query.url : ''

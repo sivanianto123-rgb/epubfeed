@@ -1,4 +1,4 @@
-import type { ChapterThreadInfo, PassageQuote } from './types'
+import type { ChapterThreadInfo, PassageQuote } from './types.js'
 
 const USER_AGENT = process.env.REDDIT_USER_AGENT || 'epubfeed/1.0 (personal reading app)'
 const MAX_SUBMISSIONS = 6

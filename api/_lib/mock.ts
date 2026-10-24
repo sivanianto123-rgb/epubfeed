@@ -1,4 +1,4 @@
-import type { DiscussionsResponse } from './types'
+import type { DiscussionsResponse } from './types.js'
 
 /**
  * Returned when no Reddit/Hardcover credentials are configured, so the

@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { searchRedditDiscussions } from './_lib/reddit'
-import { fetchHardcoverReviews } from './_lib/hardcover'
-import { mockDiscussions } from './_lib/mock'
-import type { DiscussionsResponse } from './_lib/types'
+import { searchRedditDiscussions } from './_lib/reddit.js'
+import { fetchHardcoverReviews } from './_lib/hardcover.js'
+import { mockDiscussions } from './_lib/mock.js'
+import type { DiscussionsResponse } from './_lib/types.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const title = typeof req.query.title === 'string' ? req.query.title.trim() : ''

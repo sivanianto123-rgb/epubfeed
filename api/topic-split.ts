@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { splitIntoTopics } from './_lib/openrouter'
+import { splitIntoTopics } from './_lib/openrouter.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {

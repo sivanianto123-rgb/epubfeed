@@ -1,4 +1,4 @@
-import type { BookReview } from './types'
+import type { BookReview } from './types.js'
 
 const ENDPOINT = 'https://api.hardcover.app/v1/graphql'
 

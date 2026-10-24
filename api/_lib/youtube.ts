@@ -120,17 +120,26 @@ async function fetchPlayerResponseWithClient(videoId: string, config: ClientConf
 }
 
 /** Tries each client config in order, stopping at the first one that
- * isn't itself blocked by YouTube's anti-bot wall. If every config gets
- * blocked, returns the last response anyway so the caller can report the
- * real (blocked) reason rather than a generic failure. */
+ * isn't itself blocked by YouTube's anti-bot wall. A later config failing
+ * outright (wrong key, bad request, network hiccup) never discards a
+ * usable result an earlier config already got — it's just skipped, so one
+ * broken fallback can't regress a client that was already working. Only
+ * throws if every single config failed outright with no usable response
+ * at all. */
 async function fetchPlayerResponse(videoId: string): Promise<PlayerResponse> {
-  let last: PlayerResponse | null = null
+  let lastResult: PlayerResponse | null = null
+  let lastError: unknown = null
   for (const config of CLIENT_CONFIGS) {
-    const player = await fetchPlayerResponseWithClient(videoId, config)
-    if (!isBotBlocked(player)) return player
-    last = player
+    try {
+      const player = await fetchPlayerResponseWithClient(videoId, config)
+      if (!isBotBlocked(player)) return player
+      lastResult = player
+    } catch (err) {
+      lastError = err
+    }
   }
-  return last as PlayerResponse
+  if (lastResult) return lastResult
+  throw lastError instanceof Error ? lastError : new Error('Could not load that YouTube video.')
 }
 
 /**
